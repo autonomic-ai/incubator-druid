@@ -26,11 +26,12 @@
         <relativePath></relativePath>
     </parent>
 
+    <groupId>io.druid</groupId>
     <artifactId>druid</artifactId>
     <version>0.12.4-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>${project.groupId}:${project.artifactId}</name>
+    <name>Druid</name>
     <description>Druid - A Distributed Column Store</description>
     <url>http://druid.io/</url>
 
