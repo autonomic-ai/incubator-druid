@@ -1,0 +1,82 @@
+#!/bin/bash
+
+###
+# ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+# Autonomic Proprietary 1.0
+# ——————————————————————————————————————————————————————————————————————————————
+# Copyright (C) 2017 - 2018 Autonomic, LLC - All rights reserved
+# ——————————————————————————————————————————————————————————————————————————————
+# Proprietary and confidential.
+#
+# NOTICE:  All information contained herein is, and remains the property of
+# Autonomic, LLC and its suppliers, if any.  The intellectual and technical
+# concepts contained herein are proprietary to Autonomic, LLC and its suppliers
+# and may be covered by U.S. and Foreign Patents, patents in process, and are
+# protected by trade secret or copyright law. Dissemination of this information
+# or reproduction of this material is strictly forbidden unless prior written
+# permission is obtained from Autonomic, LLC.
+#
+# Unauthorized copy of this file, via any medium is strictly prohibited.
+# ______________________________________________________________________________
+###
+
+declare -a _REQUIRED_VARS
+_REQUIRED_VARS=(
+  ZK_HOST
+  S3_BUCKET
+  S3_KEY_PREFIX
+  S3_ACCESS_KEY
+  S3_SECRET_KEY
+  POSTGRES_HOST
+  POSTGRES_PORT
+  POSTGRES_DATABASE
+  POSTGRES_USER
+  POSTGRES_PASSWORD
+)
+
+_validate_env_vars() {
+  local failed=false
+  local varname
+
+  for varname in ${_REQUIRED_VARS[@]}; do
+    if [ -z ${!varname} ]; then
+      failed=true
+      echo "ERROR: ${varname} not set (or empty)." >&2
+    fi
+  done
+
+  if $failed; then
+    echo "ERROR: Required environment variable(s) unset. Exiting." >&2
+    return 1
+  fi
+}
+
+_update_s3_config() {
+  sed -i "s%druid.storage.bucket=your-bucket%druid.storage.bucket=${S3_BUCKET}%g" \
+    /opt/au/config/common/common.runtime.properties
+  sed -i "s%druid.storage.baseKey=druid%druid.storage.baseKey=${S3_KEY_PREFIX}/druid%g" \
+    /opt/au/config/common/common.runtime.properties
+  sed -i "s%druid.s3.accessKey=your-access-key%druid.s3.accessKey=${S3_ACCESS_KEY}%g" \
+    /opt/au/config/common/common.runtime.properties
+  sed -i "s%druid.s3.secretKey=your-secret-key%druid.s3.secretKey=${S3_SECRET_KEY}%g" \
+    /opt/au/config/common/common.runtime.properties
+
+  sed -i "s%druid.indexer.logs.s3Bucket=your-bucket%druid.indexer.logs.s3Bucket=${S3_BUCKET}%g" \
+    /opt/au/config/common/common.runtime.properties
+  sed -i "s%druid.indexer.logs.s3Prefix=druid%druid.indexer.logs.s3Prefix=${S3_KEY_PREFIX}/druid%g" \
+    /opt/au/config/common/common.runtime.properties
+}
+
+_update_postgres_config() {
+  sed -i "s%druid.metadata.storage.connector.connectURI=postgres_uri%druid.metadata.storage.connector.connectURI=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}%g" \
+    /opt/au/config/common/common.runtime.properties
+  sed -i "s%druid.metadata.storage.connector.user=postgres_user%druid.metadata.storage.connector.user=${POSTGRES_USER}%g" \
+    /opt/au/config/common/common.runtime.properties
+  sed -i "s%druid.metadata.storage.connector.password=postgres_password%druid.metadata.storage.connector.password=${POSTGRES_PASSWORD}%g" \
+    /opt/au/config/common/common.runtime.properties
+}
+
+_update_zookeeper_config() {
+  sed -i "s%druid.zk.service.host=zk_host%druid.zk.service.host=${ZK_HOST}%g" \
+    /opt/au/config/common/common.runtime.properties
+}
