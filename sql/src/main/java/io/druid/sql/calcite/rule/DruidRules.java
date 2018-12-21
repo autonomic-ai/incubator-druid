@@ -24,6 +24,7 @@ import io.druid.java.util.common.StringUtils;
 import io.druid.sql.calcite.rel.DruidOuterQueryRel;
 import io.druid.sql.calcite.rel.DruidRel;
 import io.druid.sql.calcite.rel.PartialDruidQuery;
+import io.druid.sql.calcite.rel.PartialDruidQuery.Stage;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptRuleOperand;
@@ -35,6 +36,7 @@ import org.apache.calcite.rel.core.Sort;
 
 import java.util.List;
 import java.util.function.BiFunction;
+import org.apache.calcite.rel.core.Window;
 
 public class DruidRules
 {
@@ -60,6 +62,16 @@ public class DruidRules
             Sort.class,
             PartialDruidQuery.Stage.SELECT_SORT,
             PartialDruidQuery::withSelectSort
+        ),
+        new DruidQueryRule<>(
+            Window.class,
+            Stage.WINDOW,
+            PartialDruidQuery::withWindow
+        ),
+        new DruidQueryRule<>(
+            Project.class,
+            Stage.WINDOW_PROJECT,
+            PartialDruidQuery::withWindowProject
         ),
         new DruidQueryRule<>(
             Aggregate.class,

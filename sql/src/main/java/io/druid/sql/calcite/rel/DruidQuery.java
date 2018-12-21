@@ -27,9 +27,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import io.druid.initialization.Initialization;
+import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.ISE;
 import io.druid.java.util.common.granularity.Granularities;
 import io.druid.java.util.common.granularity.Granularity;
+import io.druid.java.util.common.logger.Logger;
 import io.druid.math.expr.ExprMacroTable;
 import io.druid.math.expr.ExprType;
 import io.druid.math.expr.Parser;
@@ -56,6 +59,7 @@ import io.druid.query.topn.InvertedTopNMetricSpec;
 import io.druid.query.topn.NumericTopNMetricSpec;
 import io.druid.query.topn.TopNMetricSpec;
 import io.druid.query.topn.TopNQuery;
+import io.druid.query.window.WindowQueryFactory;
 import io.druid.segment.VirtualColumn;
 import io.druid.segment.VirtualColumns;
 import io.druid.segment.column.Column;
@@ -76,6 +80,8 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.core.Window;
+import org.apache.calcite.rel.core.Window.Group;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
@@ -86,6 +92,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 
 import javax.annotation.Nullable;
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +107,8 @@ import java.util.stream.Collectors;
  */
 public class DruidQuery
 {
+  private static final Logger log = new Logger(DruidQuery.class);
+
   private final DataSource dataSource;
   private final RowSignature sourceRowSignature;
   private final PlannerContext plannerContext;
@@ -109,6 +120,7 @@ public class DruidQuery
   private final DefaultLimitSpec limitSpec;
   private final RowSignature outputRowSignature;
   private final RelDataType outputRowType;
+  private final Windowing windowing;
 
   private final Query query;
 
@@ -130,6 +142,7 @@ public class DruidQuery
     this.filter = computeWhereFilter(partialQuery, sourceRowSignature, plannerContext);
     this.selectProjection = computeSelectProjection(partialQuery, plannerContext, sourceRowSignature);
     this.grouping = computeGrouping(partialQuery, plannerContext, sourceRowSignature, rexBuilder, finalizeAggregations);
+    this.windowing = computeWindowing(partialQuery, plannerContext, sourceRowSignature, rexBuilder, finalizeAggregations);
 
     final RowSignature sortingInputRowSignature;
 
@@ -308,6 +321,219 @@ public class DruidQuery
           havingFilter,
           RowSignature.from(projectRowOrderAndPostAggregations.rowOrder, aggregateProject.getRowType())
       );
+    }
+  }
+
+  /**
+   * Returns partitions corresponding to {@code window.keys}, in the same order.
+   *
+   * @param partialQuery       partial query
+   * @param plannerContext     planner context
+   * @param sourceRowSignature source row signature
+   *
+   * @return partitions
+   *
+   * @throws CannotBuildQueryException if dimensions cannot be computed
+   */
+  private static List<DimensionExpression> computePartitions(
+      final PartialDruidQuery partialQuery,
+      final PlannerContext plannerContext,
+      final RowSignature sourceRowSignature
+  )
+  {
+    final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
+
+    if (window.groups.size() > 1) {
+      // Don't support multiple groups yet.
+      throw new CannotBuildQueryException(window);
+    }
+
+    List<DimensionExpression> partitions = new ArrayList<>();
+    final String outputNamePrefix = Calcites.findUnusedPrefix("d", new TreeSet<>(sourceRowSignature.getRowOrder()));
+    int outputNameCounter = 0;
+
+    Group group = window.groups.get(0);
+    for (int i : group.keys) {
+      final String dimOutputName = outputNamePrefix + outputNameCounter++;
+      final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), i);
+      final DruidExpression druidExpression = Expressions.toDruidExpression(
+          plannerContext,
+          sourceRowSignature,
+          rexNode
+      );
+      if (druidExpression == null) {
+        throw new CannotBuildQueryException(window, rexNode);
+      }
+
+      final SqlTypeName sqlTypeName = rexNode.getType().getSqlTypeName();
+      final ValueType outputType = Calcites.getValueTypeForSqlTypeName(sqlTypeName);
+      if (outputType == null || outputType == ValueType.COMPLEX) {
+        // Can't group on unknown or COMPLEX types.
+        throw new CannotBuildQueryException(window, rexNode);
+      }
+
+      partitions.add(new DimensionExpression(dimOutputName, druidExpression, outputType));
+    }
+
+    return partitions;
+  }
+
+  /**
+   * Returns aggregations corresponding to {@code window.group.getAggCallList()}, in the same order.
+   *
+   * @param partialQuery         partial query
+   * @param plannerContext       planner context
+   * @param sourceRowSignature   source row signature
+   * @param rexBuilder           calcite RexBuilder
+   * @param finalizeAggregations true if this query should include explicit finalization for all of its
+   *                             aggregators, where required. Useful for subqueries where Druid's native query layer
+   *                             does not do this automatically.
+   *
+   * @return aggregations
+   *
+   * @throws CannotBuildQueryException if dimensions cannot be computed
+   */
+  private static List<String> computeWindowAggregationColumns(
+      final PartialDruidQuery partialQuery,
+      final PlannerContext plannerContext,
+      final RowSignature sourceRowSignature
+  )
+  {
+    final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
+
+    if (window.groups.size() > 1) {
+      // Don't support multiple groups yet.
+      throw new CannotBuildQueryException(window);
+    }
+
+    List<String> columns = new ArrayList<>();
+    Group group = window.groups.get(0);
+    for (int i = 0; i < group.getAggregateCalls(window).size(); i++) {
+      final AggregateCall aggCall = group.getAggregateCalls(window).get(i);
+      for (Integer argNo : aggCall.getArgList()) {
+        final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), argNo);
+        final DruidExpression druidExpression = Expressions.toDruidExpression(
+            plannerContext,
+            sourceRowSignature,
+            rexNode
+        );
+        if (druidExpression == null) {
+          throw new CannotBuildQueryException(window, rexNode);
+        }
+
+        columns.add(druidExpression.getDirectColumn());
+      }
+    }
+
+    return columns;
+  }
+
+  /**
+   * Returns aggregations corresponding to {@code window.group.getAggCallList()}, in the same order.
+   *
+   * @param partialQuery         partial query
+   * @param plannerContext       planner context
+   * @param sourceRowSignature   source row signature
+   * @param rexBuilder           calcite RexBuilder
+   * @param finalizeAggregations true if this query should include explicit finalization for all of its
+   *                             aggregators, where required. Useful for subqueries where Druid's native query layer
+   *                             does not do this automatically.
+   *
+   * @return aggregations
+   *
+   * @throws CannotBuildQueryException if dimensions cannot be computed
+   */
+  private static List<Aggregation> computeWindowAggregations(
+      final PartialDruidQuery partialQuery,
+      final PlannerContext plannerContext,
+      final RowSignature sourceRowSignature,
+      final RexBuilder rexBuilder,
+      final boolean finalizeAggregations
+  )
+  {
+    final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
+
+    if (window.groups.size() > 1) {
+      // Don't support multiple groups yet.
+      throw new CannotBuildQueryException(window);
+    }
+
+    final List<Aggregation> aggregations = new ArrayList<>();
+    final String outputNamePrefix = Calcites.findUnusedPrefix("a", new TreeSet<>(sourceRowSignature.getRowOrder()));
+
+    Group group = window.groups.get(0);
+    for (int i = 0; i < group.getAggregateCalls(window).size(); i++) {
+      final String aggName = outputNamePrefix + i;
+      final AggregateCall aggCall = group.getAggregateCalls(window).get(i);
+      final Aggregation aggregation = GroupByRules.translateAggregateCall(
+          plannerContext,
+          sourceRowSignature,
+          rexBuilder,
+          partialQuery.getSelectProject(),
+          aggCall,
+          aggregations,
+          aggName,
+          finalizeAggregations
+      );
+
+      if (aggregation == null) {
+        throw new CannotBuildQueryException(window, aggCall);
+      }
+
+      aggregations.add(aggregation);
+    }
+
+    return aggregations;
+  }
+
+  @Nullable
+  private static Windowing computeWindowing(
+      final PartialDruidQuery partialQuery,
+      final PlannerContext plannerContext,
+      final RowSignature sourceRowSignature,
+      final RexBuilder rexBuilder,
+      final boolean finalizeAggregations
+  )
+  {
+    final Window window = partialQuery.getWindow();
+    final Project windowProject = partialQuery.getWindowProject();
+
+    if (window == null) {
+      return null;
+    }
+
+    List<DimensionExpression> partitions =
+        computePartitions(partialQuery, plannerContext, sourceRowSignature);
+    List<Aggregation> aggregations =
+        computeWindowAggregations(partialQuery, plannerContext, sourceRowSignature,
+            rexBuilder, finalizeAggregations);
+
+    List<String> aggregationColumns =
+        computeWindowAggregationColumns(partialQuery, plannerContext, sourceRowSignature);
+
+    RelDataType relDataType;
+    if (windowProject != null) {
+      relDataType = windowProject.getRowType();
+    } else {
+      relDataType = window.getRowType();
+    }
+
+    try {
+      final RowSignature windowRowSignature = RowSignature.from(
+          ImmutableList.copyOf(
+              Iterators.concat(
+                  partitions.stream().map(DimensionExpression::getOutputName).iterator(),
+                  aggregationColumns.iterator(),
+                  aggregations.stream().map(Aggregation::getOutputName).iterator()
+              )
+          ),
+          relDataType
+      );
+
+      return Windowing.create(partitions, aggregations, aggregationColumns, windowRowSignature);
+    }
+    catch (IAE exp) {
+      return null;
     }
   }
 
@@ -710,6 +936,11 @@ public class DruidQuery
       return groupByQuery;
     }
 
+    final Query windowQuery = toWindowQuery();
+    if (windowQuery != null) {
+      return windowQuery;
+    }
+
     final ScanQuery scanQuery = toScanQuery();
     if (scanQuery != null) {
       return scanQuery;
@@ -913,6 +1144,51 @@ public class DruidQuery
         limitSpec,
         ImmutableSortedMap.copyOf(plannerContext.getQueryContext())
     );
+  }
+
+  /**
+   * Return this query as a Windowing query, or null if this query is not compatible with Windowing.
+   *
+   * @return query or null
+   */
+  @Nullable
+  public Query toWindowQuery()
+  {
+    if (windowing == null) {
+      return null;
+    }
+
+    Object windowQuery = plannerContext.getQueryContext().get("windowQuery");
+    if (windowQuery == null) {
+      return null;
+    }
+
+    String windowQueryContext = (String) windowQuery;
+    String[] contextParts = windowQueryContext.split(":");
+
+    if (contextParts.length != 2) {
+      throw new ISE("Invalid windowQuery context: " + windowQueryContext);
+    }
+
+    final Filtration filtration = Filtration.create(filter).optimize(sourceRowSignature);
+
+    try {
+      URLClassLoader loader = Initialization.getClassLoaderForExtension(new File(contextParts[0]));
+      WindowQueryFactory queryFactory = (WindowQueryFactory) loader.loadClass(contextParts[1]).newInstance();
+      return queryFactory.factorize(
+          dataSource,
+          filtration.getQuerySegmentSpec(),
+          windowing.getDimensionSpecs(),
+          windowing.getAggregatorFactories(),
+          filtration.getDimFilter(),
+          limitSpec,
+          ImmutableSortedMap.copyOf(plannerContext.getQueryContext())
+      );
+    }
+    catch (ClassNotFoundException | InstantiationException | IllegalAccessException | MalformedURLException exp) {
+      log.info("can not access class %s: %s", windowQuery, exp.getMessage());
+      throw new CannotBuildQueryException("Can not access Class " + windowQuery + ": " + exp.getMessage());
+    }
   }
 
   /**
