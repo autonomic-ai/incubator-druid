@@ -108,6 +108,8 @@ public class QueryMaker
       return executeScan(druidQuery, (ScanQuery) query);
     } else if (query instanceof SelectQuery) {
       return executeSelect(druidQuery, (SelectQuery) query);
+    } else if (query instanceof Query) {
+      return executeQuery(druidQuery, query);
     } else {
       throw new ISE("Cannot run query of class[%s]", query.getClass().getName());
     }
@@ -345,6 +347,33 @@ public class QueryMaker
   private Sequence<Object[]> executeGroupBy(
       final DruidQuery druidQuery,
       final GroupByQuery query
+  )
+  {
+    final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();
+
+    return Sequences.map(
+        runQuery(query),
+        new Function<Row, Object[]>()
+        {
+          @Override
+          public Object[] apply(final Row row)
+          {
+            final Object[] retVal = new Object[fieldList.size()];
+            for (RelDataTypeField field : fieldList) {
+              retVal[field.getIndex()] = coerce(
+                  row.getRaw(druidQuery.getOutputRowSignature().getRowOrder().get(field.getIndex())),
+                  field.getType().getSqlTypeName()
+              );
+            }
+            return retVal;
+          }
+        }
+    );
+  }
+
+  private Sequence<Object[]> executeQuery(
+      final DruidQuery druidQuery,
+      final Query query
   )
   {
     final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();

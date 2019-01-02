@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.guava.Sequence;
 import io.druid.java.util.common.guava.Sequences;
+import io.druid.query.Query;
 import io.druid.query.QueryDataSource;
 import io.druid.query.TableDataSource;
 import io.druid.sql.calcite.table.RowSignature;
@@ -130,8 +131,13 @@ public class DruidOuterQueryRel extends DruidRel<DruidOuterQueryRel>
     }
 
     final RowSignature sourceRowSignature = subQuery.getOutputRowSignature();
+    Query queryDataSource = subQuery.toWindowQuery();
+    if (queryDataSource == null) {
+      queryDataSource = subQuery.toGroupByQuery();
+    }
+
     return partialQuery.build(
-        new QueryDataSource(subQuery.toGroupByQuery()),
+        new QueryDataSource(queryDataSource),
         sourceRowSignature,
         getPlannerContext(),
         getCluster().getRexBuilder(),

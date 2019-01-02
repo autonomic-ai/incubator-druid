@@ -22,6 +22,8 @@ package io.druid.query.window;
 import io.druid.data.input.Row;
 import io.druid.query.BaseQuery;
 import io.druid.query.DataSource;
+import io.druid.query.Query;
+import io.druid.query.QueryToolChest;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.filter.DimFilter;
@@ -40,4 +42,6 @@ public interface WindowQueryFactory
                            DimFilter dimFilter,
                            LimitSpec limitSpec,
                            Map<String, Object> queryContext);
+
+  QueryToolChest<Row, Query<Row>> getToolChest();
 }

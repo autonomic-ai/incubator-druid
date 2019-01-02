@@ -38,19 +38,19 @@ public class Windowing
 
   private final List<DimensionExpression> partitions;
   private final List<Aggregation> aggregations;
-  private final List<String> aggregationColumns;
+  private final List<String> rowOrder;
   private final RowSignature outputRowSignature;
 
   private Windowing(
       final List<DimensionExpression> partitions,
       final List<Aggregation> aggregations,
-      final List<String> aggregationColumns,
+      final List<String> rowOrder,
       final RowSignature outputRowSignature
   )
   {
     this.partitions = ImmutableList.copyOf(partitions);
     this.aggregations = ImmutableList.copyOf(aggregations);
-    this.aggregationColumns = ImmutableList.copyOf(aggregationColumns);
+    this.rowOrder = ImmutableList.copyOf(rowOrder);
     this.outputRowSignature = outputRowSignature;
 
     // Verify no collisions.
@@ -59,10 +59,6 @@ public class Windowing
       if (!seen.add(dimensionExpression.getOutputName())) {
         throw new ISE("Duplicate field name: %s", dimensionExpression.getOutputName());
       }
-    }
-
-    for (String column: aggregationColumns) {
-      seen.add(column);
     }
 
     for (Aggregation aggregation : aggregations) {
@@ -74,6 +70,10 @@ public class Windowing
       if (aggregation.getPostAggregator() != null) {
         throw new ISE("Windowing aggregate function does not have post aggregator");
       }
+    }
+
+    for (String column: rowOrder) {
+      seen.add(column);
     }
 
     // Verify that items in the output signature exist.

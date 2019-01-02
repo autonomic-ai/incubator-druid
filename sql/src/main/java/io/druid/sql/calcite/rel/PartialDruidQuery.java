@@ -372,6 +372,12 @@ public class PartialDruidQuery
     } else if (stage.compareTo(Stage.SORT) > 0 && sort == null) {
       // Cannot add sort project without a sort
       return false;
+    } else if (stage == Stage.WINDOW_PROJECT && window == null) {
+      // Cannot do window_project without a window.
+      return false;
+    } else if (stage == Stage.AGGREGATE && window != null) {
+      // Cannot do aggregation with a window.
+      return false;
     } else {
       // Looks good.
       return true;

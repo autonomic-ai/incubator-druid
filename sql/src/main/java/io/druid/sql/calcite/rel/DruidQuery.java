@@ -28,7 +28,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import io.druid.initialization.Initialization;
-import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.ISE;
 import io.druid.java.util.common.granularity.Granularities;
 import io.druid.java.util.common.granularity.Granularity;
@@ -150,6 +149,8 @@ public class DruidQuery
       sortingInputRowSignature = this.selectProjection.getOutputRowSignature();
     } else if (this.grouping != null) {
       sortingInputRowSignature = this.grouping.getOutputRowSignature();
+    } else if (this.windowing != null) {
+      sortingInputRowSignature = this.windowing.getOutputRowSignature();
     } else {
       sortingInputRowSignature = sourceRowSignature;
     }
@@ -379,7 +380,7 @@ public class DruidQuery
   }
 
   /**
-   * Returns aggregations corresponding to {@code window.group.getAggCallList()}, in the same order.
+   * Returns aggregate columns corresponding to {@code window.group.getAggCallList()}, in the same order.
    *
    * @param partialQuery         partial query
    * @param plannerContext       planner context
@@ -486,6 +487,52 @@ public class DruidQuery
     return aggregations;
   }
 
+  /**
+   * Returns row order for the window query.
+   *
+   * @param partialQuery         partial query
+   * @param plannerContext       planner context
+   * @param sourceRowSignature   source row signature
+   * @param rexBuilder           calcite RexBuilder
+   *
+   * @return Window rowOrder.
+   *
+   * @throws CannotBuildQueryException if dimensions cannot be computed
+   */
+  private static List<String> computeWindowRowOrder(
+      final PartialDruidQuery partialQuery,
+      final PlannerContext plannerContext,
+      final RowSignature sourceRowSignature,
+      final List<Aggregation> aggregations
+  )
+  {
+    final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
+
+    if (window.groups.size() > 1) {
+      // Don't support multiple groups yet.
+      throw new CannotBuildQueryException(window);
+    }
+
+    List<String> rowOrder = new ArrayList<>();
+
+    String[] rows = window.getRowType().getFieldNames().toArray(new String[0]);
+    // Add columns that are not part of window functions.
+    for (int i = 0; i < rows.length - aggregations.size(); i++) {
+      final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), i);
+      final DruidExpression druidExpression = Expressions.toDruidExpression(
+          plannerContext,
+          sourceRowSignature,
+          rexNode
+      );
+      rowOrder.add(druidExpression.getDirectColumn());
+    }
+
+    // Add window function columns
+    rowOrder.addAll(aggregations.stream().map(Aggregation::getOutputName).collect(Collectors.toList()));
+
+    return rowOrder;
+  }
+
   @Nullable
   private static Windowing computeWindowing(
       final PartialDruidQuery partialQuery,
@@ -496,11 +543,13 @@ public class DruidQuery
   )
   {
     final Window window = partialQuery.getWindow();
-    final Project windowProject = partialQuery.getWindowProject();
 
     if (window == null) {
       return null;
     }
+
+    log.info("sourceRowSignature %d, window.getRowType() %d", sourceRowSignature.getRowOrder().size(),
+             window.getRowType().getFieldCount());
 
     List<DimensionExpression> partitions =
         computePartitions(partialQuery, plannerContext, sourceRowSignature);
@@ -511,30 +560,11 @@ public class DruidQuery
     List<String> aggregationColumns =
         computeWindowAggregationColumns(partialQuery, plannerContext, sourceRowSignature);
 
-    RelDataType relDataType;
-    if (windowProject != null) {
-      relDataType = windowProject.getRowType();
-    } else {
-      relDataType = window.getRowType();
-    }
+    List<String> rowOrder = computeWindowRowOrder(partialQuery, plannerContext, sourceRowSignature, aggregations);
 
-    try {
-      final RowSignature windowRowSignature = RowSignature.from(
-          ImmutableList.copyOf(
-              Iterators.concat(
-                  partitions.stream().map(DimensionExpression::getOutputName).iterator(),
-                  aggregationColumns.iterator(),
-                  aggregations.stream().map(Aggregation::getOutputName).iterator()
-              )
-          ),
-          relDataType
-      );
+    final RowSignature windowRowSignature = RowSignature.from(rowOrder, window.getRowType());
 
-      return Windowing.create(partitions, aggregations, aggregationColumns, windowRowSignature);
-    }
-    catch (IAE exp) {
-      return null;
-    }
+    return Windowing.create(partitions, aggregations, rowOrder, windowRowSignature);
   }
 
   @Nullable
@@ -1158,9 +1188,12 @@ public class DruidQuery
       return null;
     }
 
+    // We use "windowQuery" context to pass in the actual implementation of WindowQuery.
+    // The "windowQuery" context is a string with this format:
+    //      <window_query_extensions_dir>:<WindowQueryFactory_Implementation_ClassName>
     Object windowQuery = plannerContext.getQueryContext().get("windowQuery");
     if (windowQuery == null) {
-      return null;
+      throw new ISE("Missing windowQuery context");
     }
 
     String windowQueryContext = (String) windowQuery;

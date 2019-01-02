@@ -279,9 +279,9 @@ public class DruidRules
     @Override
     public boolean matches(final RelOptRuleCall call)
     {
-      // Subquery must be a groupBy, so stage must be >= AGGREGATE.
+      // Subquery must be a groupBy/window, so stage must be >= WINDOW.
       final DruidRel druidRel = call.rel(call.getRelList().size() - 1);
-      return druidRel.getPartialDruidQuery().stage().compareTo(PartialDruidQuery.Stage.AGGREGATE) >= 0;
+      return druidRel.getPartialDruidQuery().stage().compareTo(Stage.WINDOW) >= 0;
     }
   }
 }

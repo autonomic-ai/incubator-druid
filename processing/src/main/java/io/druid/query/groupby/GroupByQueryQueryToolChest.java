@@ -41,6 +41,7 @@ import io.druid.java.util.common.guava.Sequences;
 import io.druid.query.CacheStrategy;
 import io.druid.query.DataSource;
 import io.druid.query.IntervalChunkingQueryRunnerDecorator;
+import io.druid.query.Query;
 import io.druid.query.QueryContexts;
 import io.druid.query.QueryDataSource;
 import io.druid.query.QueryPlus;
@@ -57,6 +58,7 @@ import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.groupby.resource.GroupByQueryResource;
 import io.druid.query.groupby.strategy.GroupByStrategy;
 import io.druid.query.groupby.strategy.GroupByStrategySelector;
+import io.druid.query.window.WindowQueryFactory;
 import io.druid.segment.DimensionHandlerUtils;
 import org.joda.time.DateTime;
 
@@ -123,6 +125,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
         final GroupByQuery groupByQuery = (GroupByQuery) queryPlus.getQuery();
         if (strategySelector.strategize(groupByQuery).doMergeResults(groupByQuery)) {
           return initAndMergeGroupByResults(
+              queryPlus,
               groupByQuery,
               runner,
               responseContext
@@ -134,6 +137,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
   }
 
   private Sequence<Row> initAndMergeGroupByResults(
+      QueryPlus<Row> queryPlus,
       final GroupByQuery query,
       QueryRunner<Row> runner,
       Map<String, Object> context
@@ -144,6 +148,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
 
     return Sequences.withBaggage(
         mergeGroupByResults(
+            queryPlus,
             groupByStrategy,
             query,
             resource,
@@ -155,6 +160,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
   }
 
   private Sequence<Row> mergeGroupByResults(
+      QueryPlus<Row> queryPlus,
       GroupByStrategy groupByStrategy,
       final GroupByQuery query,
       GroupByQueryResource resource,
@@ -166,7 +172,37 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
 
     final DataSource dataSource = query.getDataSource();
 
-    if (dataSource instanceof QueryDataSource) {
+    if (dataSource instanceof QueryDataSource &&
+        ((QueryDataSource) dataSource).getQuery().getType().equals("window")) {
+      Object windowQueryToolChest = ((QueryDataSource) dataSource).getQuery().getContext().get("windowQueryToolChest");
+      if (windowQueryToolChest == null) {
+        throw new ISE("Missing windowQueryToolChest context");
+      }
+
+      String windowQueryToolChestContext = (String) windowQueryToolChest;
+      String[] contextParts = windowQueryToolChestContext.split(":");
+
+      if (contextParts.length != 2) {
+        throw new ISE("Invalid windowQueryToolChest context: " + windowQueryToolChestContext);
+      }
+
+      QueryRunner<Row> subqueryRunner;
+      Sequence<Row> subqueryResult;
+      Query subquery = ((QueryDataSource) dataSource).getQuery();
+      try {
+        WindowQueryFactory queryFactory = (WindowQueryFactory) Class.forName(contextParts[1]).newInstance();
+        QueryToolChest<Row, Query<Row>> toolChest = queryFactory.getToolChest();
+
+        subqueryRunner = toolChest.mergeResults(runner);
+        QueryPlus<Row> subqueryPlus = queryPlus.withQuery(subquery);
+        subqueryResult = subqueryRunner.run(subqueryPlus, context);
+      }
+      catch (ClassNotFoundException | InstantiationException | IllegalAccessException exp) {
+        throw new ISE("Can not access Class " + windowQueryToolChest + ": " + exp.getMessage());
+      }
+
+      return groupByStrategy.processSubqueryResult((GroupByQuery) subquery, query, resource, subqueryResult);
+    } else if (dataSource instanceof QueryDataSource) {
       final GroupByQuery subquery;
       try {
         // Inject outer query context keys into subquery if they don't already exist in the subquery context.
@@ -190,6 +226,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
       }
 
       final Sequence<Row> subqueryResult = mergeGroupByResults(
+          queryPlus,
           groupByStrategy,
           subquery.withOverriddenContext(
               ImmutableMap.<String, Object>of(
