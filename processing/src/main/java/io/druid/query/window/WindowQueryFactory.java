@@ -25,6 +25,7 @@ import io.druid.query.DataSource;
 import io.druid.query.Query;
 import io.druid.query.QueryToolChest;
 import io.druid.query.aggregation.AggregatorFactory;
+import io.druid.query.aggregation.PostAggregator;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.filter.DimFilter;
 import io.druid.query.groupby.orderby.LimitSpec;
@@ -37,8 +38,10 @@ public interface WindowQueryFactory
 {
   BaseQuery<Row> factorize(DataSource dataSource,
                            QuerySegmentSpec querySegmentSpec,
-                           List<DimensionSpec> partitions,
+                           List<DimensionSpec> dimensions,
                            List<AggregatorFactory> aggregations,
+                           List<PostAggregator> postAggregators,
+                           List<DimensionSpec> partitions,
                            DimFilter dimFilter,
                            LimitSpec limitSpec,
                            Map<String, Object> queryContext);

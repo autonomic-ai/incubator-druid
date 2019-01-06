@@ -199,7 +199,7 @@ public class DruidQuery
   {
     final Project project = partialQuery.getSelectProject();
 
-    if (project == null || partialQuery.getAggregate() != null) {
+    if (project == null || partialQuery.getAggregate() != null || partialQuery.getWindow() != null) {
       return null;
     }
 
@@ -326,20 +326,58 @@ public class DruidQuery
   }
 
   /**
-   * Returns partitions corresponding to {@code window.keys}, in the same order.
+   * Return a new DimensionExpression for a dimension specified by `dimIndex`.
    *
    * @param partialQuery       partial query
    * @param plannerContext     planner context
    * @param sourceRowSignature source row signature
+   * @param dimOutputName      output name for the dimension
+   * @param dimIndex           index of the dimension
+   *
+   * @return a new DimensionExpression or null if such a dimension or type does not exist.
+   */
+  private static DimensionExpression createWindowDimensionExpression(
+      final PartialDruidQuery partialQuery,
+      final PlannerContext plannerContext,
+      final RowSignature sourceRowSignature,
+      String dimOutputName,
+      int dimIndex
+  )
+  {
+    final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), dimIndex);
+    final DruidExpression druidExpression = Expressions.toDruidExpression(
+        plannerContext,
+        sourceRowSignature,
+        rexNode
+    );
+
+    if (druidExpression != null) {
+      final SqlTypeName sqlTypeName = rexNode.getType().getSqlTypeName();
+      final ValueType outputType = Calcites.getValueTypeForSqlTypeName(sqlTypeName);
+      if (outputType != null && outputType != ValueType.COMPLEX) {
+        return new DimensionExpression(dimOutputName, druidExpression, outputType);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns dimensions corresponding to the window query.
+   *
+   * @param partialQuery       partial query
+   * @param plannerContext     planner context
+   * @param sourceRowSignature source row signature
+   * @param aggregations       list of window aggregations
    *
    * @return partitions
    *
    * @throws CannotBuildQueryException if dimensions cannot be computed
    */
-  private static List<DimensionExpression> computePartitions(
+  private static List<DimensionExpression> computeWindowDimensions(
       final PartialDruidQuery partialQuery,
       final PlannerContext plannerContext,
-      final RowSignature sourceRowSignature
+      final RowSignature sourceRowSignature,
+      final List<Aggregation> aggregations
   )
   {
     final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
@@ -349,84 +387,17 @@ public class DruidQuery
       throw new CannotBuildQueryException(window);
     }
 
-    List<DimensionExpression> partitions = new ArrayList<>();
+    List<DimensionExpression> dimensions = new ArrayList<>();
     final String outputNamePrefix = Calcites.findUnusedPrefix("d", new TreeSet<>(sourceRowSignature.getRowOrder()));
     int outputNameCounter = 0;
 
-    Group group = window.groups.get(0);
-    for (int i : group.keys) {
+    int numDimensions = window.getRowType().getFieldCount() - aggregations.size();
+    for (int i = 0; i < numDimensions; i++) {
       final String dimOutputName = outputNamePrefix + outputNameCounter++;
-      final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), i);
-      final DruidExpression druidExpression = Expressions.toDruidExpression(
-          plannerContext,
-          sourceRowSignature,
-          rexNode
-      );
-      if (druidExpression == null) {
-        throw new CannotBuildQueryException(window, rexNode);
-      }
-
-      final SqlTypeName sqlTypeName = rexNode.getType().getSqlTypeName();
-      final ValueType outputType = Calcites.getValueTypeForSqlTypeName(sqlTypeName);
-      if (outputType == null || outputType == ValueType.COMPLEX) {
-        // Can't group on unknown or COMPLEX types.
-        throw new CannotBuildQueryException(window, rexNode);
-      }
-
-      partitions.add(new DimensionExpression(dimOutputName, druidExpression, outputType));
+      dimensions.add(createWindowDimensionExpression(partialQuery, plannerContext, sourceRowSignature, dimOutputName, i));
     }
 
-    return partitions;
-  }
-
-  /**
-   * Returns aggregate columns corresponding to {@code window.group.getAggCallList()}, in the same order.
-   *
-   * @param partialQuery         partial query
-   * @param plannerContext       planner context
-   * @param sourceRowSignature   source row signature
-   * @param rexBuilder           calcite RexBuilder
-   * @param finalizeAggregations true if this query should include explicit finalization for all of its
-   *                             aggregators, where required. Useful for subqueries where Druid's native query layer
-   *                             does not do this automatically.
-   *
-   * @return aggregations
-   *
-   * @throws CannotBuildQueryException if dimensions cannot be computed
-   */
-  private static List<String> computeWindowAggregationColumns(
-      final PartialDruidQuery partialQuery,
-      final PlannerContext plannerContext,
-      final RowSignature sourceRowSignature
-  )
-  {
-    final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
-
-    if (window.groups.size() > 1) {
-      // Don't support multiple groups yet.
-      throw new CannotBuildQueryException(window);
-    }
-
-    List<String> columns = new ArrayList<>();
-    Group group = window.groups.get(0);
-    for (int i = 0; i < group.getAggregateCalls(window).size(); i++) {
-      final AggregateCall aggCall = group.getAggregateCalls(window).get(i);
-      for (Integer argNo : aggCall.getArgList()) {
-        final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), argNo);
-        final DruidExpression druidExpression = Expressions.toDruidExpression(
-            plannerContext,
-            sourceRowSignature,
-            rexNode
-        );
-        if (druidExpression == null) {
-          throw new CannotBuildQueryException(window, rexNode);
-        }
-
-        columns.add(druidExpression.getDirectColumn());
-      }
-    }
-
-    return columns;
+    return dimensions;
   }
 
   /**
@@ -488,22 +459,18 @@ public class DruidQuery
   }
 
   /**
-   * Returns row order for the window query.
+   * Returns partitions corresponding to {@code window.keys}, in the same order.
    *
-   * @param partialQuery         partial query
-   * @param plannerContext       planner context
-   * @param sourceRowSignature   source row signature
-   * @param rexBuilder           calcite RexBuilder
+   * @param partialQuery       partial query
+   * @param dimensions         list of dimensions in window query, constructed by computeWindowDimensions()
    *
-   * @return Window rowOrder.
+   * @return partitions
    *
    * @throws CannotBuildQueryException if dimensions cannot be computed
    */
-  private static List<String> computeWindowRowOrder(
+  private static List<DimensionExpression> computePartitions(
       final PartialDruidQuery partialQuery,
-      final PlannerContext plannerContext,
-      final RowSignature sourceRowSignature,
-      final List<Aggregation> aggregations
+      final List<DimensionExpression> dimensions
   )
   {
     final Window window = Preconditions.checkNotNull(partialQuery.getWindow());
@@ -513,24 +480,13 @@ public class DruidQuery
       throw new CannotBuildQueryException(window);
     }
 
-    List<String> rowOrder = new ArrayList<>();
-
-    String[] rows = window.getRowType().getFieldNames().toArray(new String[0]);
-    // Add columns that are not part of window functions.
-    for (int i = 0; i < rows.length - aggregations.size(); i++) {
-      final RexNode rexNode = Expressions.fromFieldAccess(sourceRowSignature, partialQuery.getSelectProject(), i);
-      final DruidExpression druidExpression = Expressions.toDruidExpression(
-          plannerContext,
-          sourceRowSignature,
-          rexNode
-      );
-      rowOrder.add(druidExpression.getDirectColumn());
+    List<DimensionExpression> partitions = new ArrayList<>();
+    Group group = window.groups.get(0);
+    for (int i : group.keys) {
+      partitions.add(dimensions.get(i));
     }
 
-    // Add window function columns
-    rowOrder.addAll(aggregations.stream().map(Aggregation::getOutputName).collect(Collectors.toList()));
-
-    return rowOrder;
+    return partitions;
   }
 
   @Nullable
@@ -543,6 +499,7 @@ public class DruidQuery
   )
   {
     final Window window = partialQuery.getWindow();
+    final Project windowProject = partialQuery.getWindowProject();
 
     if (window == null) {
       return null;
@@ -551,20 +508,55 @@ public class DruidQuery
     log.info("sourceRowSignature %d, window.getRowType() %d", sourceRowSignature.getRowOrder().size(),
              window.getRowType().getFieldCount());
 
-    List<DimensionExpression> partitions =
-        computePartitions(partialQuery, plannerContext, sourceRowSignature);
     List<Aggregation> aggregations =
         computeWindowAggregations(partialQuery, plannerContext, sourceRowSignature,
-            rexBuilder, finalizeAggregations);
+                                  rexBuilder, finalizeAggregations);
+    List<DimensionExpression> dimensions =
+        computeWindowDimensions(partialQuery, plannerContext, sourceRowSignature, aggregations);
+    List<DimensionExpression> partitions = computePartitions(partialQuery, dimensions);
 
-    List<String> aggregationColumns =
-        computeWindowAggregationColumns(partialQuery, plannerContext, sourceRowSignature);
+    final RowSignature windowRowSignature = RowSignature.from(
+        ImmutableList.copyOf(
+            Iterators.concat(
+                dimensions.stream().map(DimensionExpression::getOutputName).iterator(),
+                aggregations.stream().map(Aggregation::getOutputName).iterator()
+            )
+        ),
+        window.getRowType()
+    );
 
-    List<String> rowOrder = computeWindowRowOrder(partialQuery, plannerContext, sourceRowSignature, aggregations);
+    if (windowProject == null) {
+      return Windowing.create(dimensions, aggregations, partitions, windowRowSignature);
+    } else {
+      final ProjectRowOrderAndPostAggregations projectRowOrderAndPostAggregations = computePostAggregations(
+          plannerContext,
+          windowRowSignature,
+          windowProject,
+          "p"
+      );
+      projectRowOrderAndPostAggregations.postAggregations.forEach(
+          postAggregator -> aggregations.add(Aggregation.create(postAggregator))
+      );
 
-    final RowSignature windowRowSignature = RowSignature.from(rowOrder, window.getRowType());
+      // Remove literal dimensions that did not appear in the projection. This is useful for queries
+      // like "SELECT COUNT(*) FROM tbl GROUP BY 'dummy'" which some tools can generate, and for which we don't
+      // actually want to include a dimension 'dummy'.
+      final ImmutableBitSet aggregateProjectBits = RelOptUtil.InputFinder.bits(windowProject.getChildExps(), null);
+      for (int i = dimensions.size() - 1; i >= 0; i--) {
+        final DimensionExpression dimension = dimensions.get(i);
+        if (Parser.parse(dimension.getDruidExpression().getExpression(), plannerContext.getExprMacroTable())
+                  .isLiteral() && !aggregateProjectBits.get(i)) {
+          dimensions.remove(i);
+        }
+      }
 
-    return Windowing.create(partitions, aggregations, rowOrder, windowRowSignature);
+      return Windowing.create(
+          dimensions,
+          aggregations,
+          partitions,
+          RowSignature.from(projectRowOrderAndPostAggregations.rowOrder, windowProject.getRowType())
+      );
+    }
   }
 
   @Nullable
@@ -786,7 +778,7 @@ public class DruidQuery
   {
     final Sort sort;
 
-    if (partialQuery.getAggregate() == null) {
+    if (partialQuery.getAggregate() == null && partialQuery.getWindow() != null) {
       sort = partialQuery.getSelectSort();
     } else {
       sort = partialQuery.getSort();
@@ -1213,6 +1205,8 @@ public class DruidQuery
           filtration.getQuerySegmentSpec(),
           windowing.getDimensionSpecs(),
           windowing.getAggregatorFactories(),
+          windowing.getPostAggregators(),
+          windowing.getPartitionSpecs(),
           filtration.getDimFilter(),
           limitSpec,
           ImmutableSortedMap.copyOf(plannerContext.getQueryContext())

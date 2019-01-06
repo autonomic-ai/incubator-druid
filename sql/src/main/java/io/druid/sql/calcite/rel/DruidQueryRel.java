@@ -229,6 +229,14 @@ public class DruidQueryRel extends DruidRel<DruidQueryRel>
       cost += COST_PER_COLUMN * partialQuery.getAggregateProject().getChildExps().size();
     }
 
+    if (partialQuery.getWindow() != null) {
+      cost += COST_PER_COLUMN * partialQuery.getWindow().groups.get(0).aggCalls.size();
+    }
+
+    if (partialQuery.getWindowProject() != null) {
+      cost += COST_PER_COLUMN * partialQuery.getWindowProject().getChildExps().size();
+    }
+
     if (partialQuery.getSort() != null && partialQuery.getSort().fetch != null) {
       cost *= COST_LIMIT_MULTIPLIER;
     }

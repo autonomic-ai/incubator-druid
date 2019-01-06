@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.druid.java.util.common.ISE;
 import io.druid.query.aggregation.AggregatorFactory;
+import io.druid.query.aggregation.PostAggregator;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.sql.calcite.aggregation.Aggregation;
 import io.druid.sql.calcite.aggregation.DimensionExpression;
@@ -36,26 +37,26 @@ import java.util.stream.Collectors;
 public class Windowing
 {
 
-  private final List<DimensionExpression> partitions;
+  private final List<DimensionExpression> dimensions;
   private final List<Aggregation> aggregations;
-  private final List<String> rowOrder;
+  private final List<DimensionExpression> partitions;
   private final RowSignature outputRowSignature;
 
   private Windowing(
-      final List<DimensionExpression> partitions,
+      final List<DimensionExpression> dimensions,
       final List<Aggregation> aggregations,
-      final List<String> rowOrder,
+      final List<DimensionExpression> partitions,
       final RowSignature outputRowSignature
   )
   {
-    this.partitions = ImmutableList.copyOf(partitions);
+    this.dimensions = ImmutableList.copyOf(dimensions);
     this.aggregations = ImmutableList.copyOf(aggregations);
-    this.rowOrder = ImmutableList.copyOf(rowOrder);
+    this.partitions = partitions;
     this.outputRowSignature = outputRowSignature;
 
     // Verify no collisions.
     final Set<String> seen = Sets.newHashSet();
-    for (DimensionExpression dimensionExpression : partitions) {
+    for (DimensionExpression dimensionExpression : dimensions) {
       if (!seen.add(dimensionExpression.getOutputName())) {
         throw new ISE("Duplicate field name: %s", dimensionExpression.getOutputName());
       }
@@ -67,13 +68,10 @@ public class Windowing
           throw new ISE("Duplicate field name: %s", aggregatorFactory.getName());
         }
       }
-      if (aggregation.getPostAggregator() != null) {
-        throw new ISE("Windowing aggregate function does not have post aggregator");
+      if (aggregation.getPostAggregator() != null && !seen.add(aggregation.getPostAggregator().getName())) {
+        throw new ISE("Windowing aggregate function post aggregator missing field %s",
+                      aggregation.getPostAggregator().getName());
       }
-    }
-
-    for (String column: rowOrder) {
-      seen.add(column);
     }
 
     // Verify that items in the output signature exist.
@@ -85,23 +83,31 @@ public class Windowing
   }
 
   public static Windowing create(
-      final List<DimensionExpression> partitions,
+      final List<DimensionExpression> dimensions,
       final List<Aggregation> aggregations,
-      final List<String> aggregationCollumns,
+      final List<DimensionExpression> partitions,
       final RowSignature outputRowSignature
   )
   {
-    return new Windowing(partitions, aggregations, aggregationCollumns, outputRowSignature);
+    return new Windowing(dimensions, aggregations, partitions, outputRowSignature);
   }
 
-  public List<DimensionExpression> getPartitions()
+  public List<DimensionExpression> getDimensions()
   {
-    return partitions;
+    return dimensions;
   }
 
   public List<Aggregation> getAggregations()
   {
     return aggregations;
+  }
+
+  public List<PostAggregator> getPostAggregators()
+  {
+    return aggregations.stream()
+                       .map(Aggregation::getPostAggregator)
+                       .filter(Objects::nonNull)
+                       .collect(Collectors.toList());
   }
 
   public RowSignature getOutputRowSignature()
@@ -111,7 +117,16 @@ public class Windowing
 
   public List<DimensionSpec> getDimensionSpecs()
   {
-    return partitions.stream().map(DimensionExpression::toDimensionSpec).collect(Collectors.toList());
+    return dimensions.stream()
+                     .map(DimensionExpression::toDimensionSpec)
+                     .collect(Collectors.toList());
+  }
+
+  public List<DimensionSpec> getPartitionSpecs()
+  {
+    return partitions.stream()
+                     .map(DimensionExpression::toDimensionSpec)
+                     .collect(Collectors.toList());
   }
 
   public List<AggregatorFactory> getAggregatorFactories()
@@ -131,23 +146,25 @@ public class Windowing
       return false;
     }
     final Windowing window = (Windowing) o;
-    return Objects.equals(partitions, window.partitions) &&
+    return Objects.equals(dimensions, window.dimensions) &&
            Objects.equals(aggregations, window.aggregations) &&
+           Objects.equals(partitions, window.partitions) &&
            Objects.equals(outputRowSignature, window.outputRowSignature);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(partitions, aggregations, outputRowSignature);
+    return Objects.hash(dimensions, aggregations, partitions, outputRowSignature);
   }
 
   @Override
   public String toString()
   {
     return "Windowing{" +
-           "partitions=" + partitions +
+           "dimensions=" + dimensions +
            ", aggregations=" + aggregations +
+           ", partitions=" + partitions +
            ", outputRowSignature=" + outputRowSignature +
            '}';
   }
