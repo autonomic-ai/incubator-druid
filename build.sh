@@ -1,4 +1,8 @@
-./mvnw versions:set -DnewVersion="au-0.13.0-incubating-$FINAL_OR_BRANCH_SNAPSHOT_VERSION"
+./mvnw versions:set -DnewVersion="$FINAL_OR_BRANCH_SNAPSHOT_VERSION"
 ./mvnw -DskipTests=true -Pdist deploy
 
-sed "s%<DRUID_VERSION>%au-0.13.0-incubating-$FINAL_OR_BRANCH_SNAPSHOT_VERSION%g" Dockerfile.template > Dockerfile
+if [ -z $FINAL_OR_BRANCH_SNAPSHOT_VERSION ]; then
+    sed "s%<DRUID_VERSION>%0.13.1-incubating-SNAPSHOT%g" Dockerfile.template > Dockerfile
+else
+    sed "s%<DRUID_VERSION>%$FINAL_OR_BRANCH_SNAPSHOT_VERSION%g" Dockerfile.template > Dockerfile
+fi
