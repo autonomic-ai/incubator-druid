@@ -26,6 +26,7 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.core.Window;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.druid.java.util.common.ISE;
@@ -49,6 +50,8 @@ public class PartialDruidQuery
   private final Project aggregateProject;
   private final Sort sort;
   private final Project sortProject;
+  private final Window window;
+  private final Project windowProject;
 
   public enum Stage
   {
@@ -56,6 +59,8 @@ public class PartialDruidQuery
     WHERE_FILTER,
     SELECT_PROJECT,
     SELECT_SORT,
+    WINDOW,
+    WINDOW_PROJECT,
     AGGREGATE,
     HAVING_FILTER,
     AGGREGATE_PROJECT,
@@ -72,7 +77,9 @@ public class PartialDruidQuery
       final Project aggregateProject,
       final Filter havingFilter,
       final Sort sort,
-      final Project sortProject
+      final Project sortProject,
+      final Window window,
+      final Project windowProject
   )
   {
     this.scan = Preconditions.checkNotNull(scan, "scan");
@@ -84,11 +91,13 @@ public class PartialDruidQuery
     this.havingFilter = havingFilter;
     this.sort = sort;
     this.sortProject = sortProject;
+    this.window = window;
+    this.windowProject = windowProject;
   }
 
   public static PartialDruidQuery create(final RelNode scanRel)
   {
-    return new PartialDruidQuery(scanRel, null, null, null, null, null, null, null, null);
+    return new PartialDruidQuery(scanRel, null, null, null, null, null, null, null, null, null, null);
   }
 
   public RelNode getScan()
@@ -136,6 +145,16 @@ public class PartialDruidQuery
     return sortProject;
   }
 
+  public Window getWindow()
+  {
+    return window;
+  }
+
+  public Project getWindowProject()
+  {
+    return windowProject;
+  }
+
   public PartialDruidQuery withWhereFilter(final Filter newWhereFilter)
   {
     validateStage(Stage.WHERE_FILTER);
@@ -148,7 +167,9 @@ public class PartialDruidQuery
         aggregateProject,
         havingFilter,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -164,7 +185,9 @@ public class PartialDruidQuery
         aggregateProject,
         havingFilter,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -180,7 +203,9 @@ public class PartialDruidQuery
         aggregateProject,
         havingFilter,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -196,7 +221,9 @@ public class PartialDruidQuery
         aggregateProject,
         havingFilter,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -212,7 +239,9 @@ public class PartialDruidQuery
         aggregateProject,
         newHavingFilter,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -228,7 +257,9 @@ public class PartialDruidQuery
         newAggregateProject,
         havingFilter,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -244,7 +275,9 @@ public class PartialDruidQuery
         aggregateProject,
         havingFilter,
         newSort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -260,7 +293,45 @@ public class PartialDruidQuery
         aggregateProject,
         havingFilter,
         sort,
-        newSortProject
+        newSortProject,
+        window,
+        windowProject
+    );
+  }
+
+  public PartialDruidQuery withWindow(final Window newWindow)
+  {
+    validateStage(Stage.WINDOW);
+    return new PartialDruidQuery(
+        scan,
+        whereFilter,
+        selectProject,
+        selectSort,
+        aggregate,
+        aggregateProject,
+        havingFilter,
+        sort,
+        sortProject,
+        newWindow,
+        windowProject
+    );
+  }
+
+  public PartialDruidQuery withWindowProject(final Project newWindowProject)
+  {
+    validateStage(Stage.WINDOW_PROJECT);
+    return new PartialDruidQuery(
+        scan,
+        whereFilter,
+        selectProject,
+        selectSort,
+        aggregate,
+        aggregateProject,
+        havingFilter,
+        sort,
+        sortProject,
+        window,
+        newWindowProject
     );
   }
 
@@ -279,10 +350,11 @@ public class PartialDruidQuery
       final RowSignature sourceRowSignature,
       final PlannerContext plannerContext,
       final RexBuilder rexBuilder,
-      final boolean finalizeAggregations
+      final boolean finalizeAggregations,
+      final boolean isWindowQueryDataSource
   )
   {
-    return new DruidQuery(this, dataSource, sourceRowSignature, plannerContext, rexBuilder, finalizeAggregations);
+    return new DruidQuery(this, dataSource, sourceRowSignature, plannerContext, rexBuilder, finalizeAggregations, isWindowQueryDataSource);
   }
 
   public boolean canAccept(final Stage stage)
@@ -300,6 +372,12 @@ public class PartialDruidQuery
       return false;
     } else if (stage.compareTo(Stage.SORT) > 0 && sort == null) {
       // Cannot add sort project without a sort
+      return false;
+    } else if (stage.compareTo(Stage.WINDOW_PROJECT) == 0 && window == null) {
+      // Cannot do window_project without a window.
+      return false;
+    } else if (stage.compareTo(Stage.AGGREGATE) == 0 && window != null) {
+      // Cannot do aggregation with a window.
       return false;
     } else {
       // Looks good.
@@ -326,6 +404,10 @@ public class PartialDruidQuery
       return Stage.HAVING_FILTER;
     } else if (aggregate != null) {
       return Stage.AGGREGATE;
+    } else if (windowProject != null) {
+      return Stage.WINDOW_PROJECT;
+    } else if (window != null) {
+      return Stage.WINDOW;
     } else if (selectSort != null) {
       return Stage.SELECT_SORT;
     } else if (selectProject != null) {
@@ -357,6 +439,10 @@ public class PartialDruidQuery
         return havingFilter;
       case AGGREGATE:
         return aggregate;
+      case WINDOW_PROJECT:
+        return windowProject;
+      case WINDOW:
+        return window;
       case SELECT_SORT:
         return selectSort;
       case SELECT_PROJECT:
@@ -395,7 +481,9 @@ public class PartialDruidQuery
            Objects.equals(havingFilter, that.havingFilter) &&
            Objects.equals(aggregateProject, that.aggregateProject) &&
            Objects.equals(sort, that.sort) &&
-           Objects.equals(sortProject, that.sortProject);
+           Objects.equals(sortProject, that.sortProject) &&
+           Objects.equals(window, that.window) &&
+           Objects.equals(windowProject, that.windowProject);
   }
 
   @Override
@@ -410,7 +498,9 @@ public class PartialDruidQuery
         havingFilter,
         aggregateProject,
         sort,
-        sortProject
+        sortProject,
+        window,
+        windowProject
     );
   }
 
@@ -427,6 +517,8 @@ public class PartialDruidQuery
            ", aggregateProject=" + aggregateProject +
            ", sort=" + sort +
            ", sortProject=" + sortProject +
+           ", window=" + window +
+           ", windowProject=" + windowProject +
            '}';
   }
 }

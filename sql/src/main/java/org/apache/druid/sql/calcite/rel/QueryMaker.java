@@ -52,6 +52,8 @@ import org.apache.druid.query.timeseries.TimeseriesResultValue;
 import org.apache.druid.query.topn.DimensionAndMetricValueExtractor;
 import org.apache.druid.query.topn.TopNQuery;
 import org.apache.druid.query.topn.TopNResultValue;
+import org.apache.druid.query.window.GroupByOverWindowBaseQuery;
+import org.apache.druid.query.window.WindowBaseQuery;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.server.QueryLifecycleFactory;
@@ -112,12 +114,16 @@ public class QueryMaker
       return executeTimeseries(druidQuery, (TimeseriesQuery) query);
     } else if (query instanceof TopNQuery) {
       return executeTopN(druidQuery, (TopNQuery) query);
+    } else if (query instanceof GroupByOverWindowBaseQuery) {
+      return executeGroupByOverWindow(druidQuery, (GroupByOverWindowBaseQuery) query);
     } else if (query instanceof GroupByQuery) {
       return executeGroupBy(druidQuery, (GroupByQuery) query);
     } else if (query instanceof ScanQuery) {
       return executeScan(druidQuery, (ScanQuery) query);
     } else if (query instanceof SelectQuery) {
       return executeSelect(druidQuery, (SelectQuery) query);
+    } else if (query instanceof WindowBaseQuery) {
+      return executeWindowQuery(druidQuery, query);
     } else {
       throw new ISE("Cannot run query of class[%s]", query.getClass().getName());
     }
@@ -364,6 +370,60 @@ public class QueryMaker
   private Sequence<Object[]> executeGroupBy(
       final DruidQuery druidQuery,
       final GroupByQuery query
+  )
+  {
+    final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();
+
+    return Sequences.map(
+        runQuery(query),
+        new Function<Row, Object[]>()
+        {
+          @Override
+          public Object[] apply(final Row row)
+          {
+            final Object[] retVal = new Object[fieldList.size()];
+            for (RelDataTypeField field : fieldList) {
+              retVal[field.getIndex()] = coerce(
+                  row.getRaw(druidQuery.getOutputRowSignature().getRowOrder().get(field.getIndex())),
+                  field.getType().getSqlTypeName()
+              );
+            }
+            return retVal;
+          }
+        }
+    );
+  }
+
+  private Sequence<Object[]> executeGroupByOverWindow(
+      final DruidQuery druidQuery,
+      final GroupByOverWindowBaseQuery query
+  )
+  {
+    final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();
+
+    return Sequences.map(
+        runQuery(query),
+        new Function<Row, Object[]>()
+        {
+          @Override
+          public Object[] apply(final Row row)
+          {
+            final Object[] retVal = new Object[fieldList.size()];
+            for (RelDataTypeField field : fieldList) {
+              retVal[field.getIndex()] = coerce(
+                  row.getRaw(druidQuery.getOutputRowSignature().getRowOrder().get(field.getIndex())),
+                  field.getType().getSqlTypeName()
+              );
+            }
+            return retVal;
+          }
+        }
+    );
+  }
+
+  private Sequence<Object[]> executeWindowQuery(
+      final DruidQuery druidQuery,
+      final Query query
   )
   {
     final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();

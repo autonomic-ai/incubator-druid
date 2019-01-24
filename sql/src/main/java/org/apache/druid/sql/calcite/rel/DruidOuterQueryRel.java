@@ -35,8 +35,10 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
+import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.sql.calcite.table.RowSignature;
 
 import javax.annotation.Nullable;
@@ -130,18 +132,29 @@ public class DruidOuterQueryRel extends DruidRel<DruidOuterQueryRel>
     }
 
     final RowSignature sourceRowSignature = subQuery.getOutputRowSignature();
+    Query queryDataSource = subQuery.toWindowQuery();
+    if (queryDataSource == null) {
+      queryDataSource = subQuery.toGroupByQuery();
+    }
     return partialQuery.build(
-        new QueryDataSource(subQuery.toGroupByQuery()),
+        new QueryDataSource(queryDataSource),
         sourceRowSignature,
         getPlannerContext(),
         getCluster().getRexBuilder(),
-        finalizeAggregations
+        finalizeAggregations,
+        !(queryDataSource instanceof GroupByQuery)
     );
   }
 
   @Override
   public DruidQuery toDruidQueryForExplaining()
   {
+    boolean isWindowQueryDataSource = false;
+    if (sourceRel instanceof DruidRel) {
+      PartialDruidQuery sourcePartialQuery = ((DruidRel) sourceRel).getPartialDruidQuery();
+      isWindowQueryDataSource = (sourcePartialQuery.getWindow() != null);
+    }
+
     return partialQuery.build(
         DUMMY_DATA_SOURCE,
         RowSignature.from(
@@ -150,7 +163,8 @@ public class DruidOuterQueryRel extends DruidRel<DruidOuterQueryRel>
         ),
         getPlannerContext(),
         getCluster().getRexBuilder(),
-        false
+        false,
+        isWindowQueryDataSource
     );
   }
 
