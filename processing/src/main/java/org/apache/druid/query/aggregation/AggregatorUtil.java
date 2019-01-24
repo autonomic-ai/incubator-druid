@@ -110,6 +110,10 @@ public class AggregatorUtil
   public static final byte HLL_SKETCH_TO_STRING_CACHE_TYPE_ID = 0x31;
   public static final byte HLL_SKETCH_TO_ESTIMATE_AND_BOUNDS_CACHE_TYPE_ID = 0x32;
 
+  // LEAD/LAG aggregator
+  public static final byte LEAD_AGG_CACHE_TYPE_ID = 0x5A;
+  public static final byte LAG_AGG_CACHE_TYPE_ID = 0x5B;
+
   /**
    * returns the list of dependent postAggregators that should be calculated in order to calculate given postAgg
    *

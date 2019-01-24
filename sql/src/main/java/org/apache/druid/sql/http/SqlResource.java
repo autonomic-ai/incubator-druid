@@ -128,7 +128,9 @@ public class SqlResource
                         for (int i = 0; i < fieldList.size(); i++) {
                           final Object value;
 
-                          if (timeColumns[i]) {
+                          if (row[i] == null) {
+                            value = row[i];
+                          } else if (timeColumns[i]) {
                             value = ISODateTimeFormat.dateTime().print(
                                 Calcites.calciteTimestampToJoda((long) row[i], timeZone)
                             );

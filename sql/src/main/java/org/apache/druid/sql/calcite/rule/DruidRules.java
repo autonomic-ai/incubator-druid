@@ -29,6 +29,7 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.core.Window;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.sql.calcite.rel.DruidOuterQueryRel;
 import org.apache.druid.sql.calcite.rel.DruidRel;
@@ -63,6 +64,16 @@ public class DruidRules
             Sort.class,
             PartialDruidQuery.Stage.SELECT_SORT,
             PartialDruidQuery::withSelectSort
+        ),
+        new DruidQueryRule<>(
+            Window.class,
+            PartialDruidQuery.Stage.WINDOW,
+            PartialDruidQuery::withWindow
+        ),
+        new DruidQueryRule<>(
+            Project.class,
+            PartialDruidQuery.Stage.WINDOW_PROJECT,
+            PartialDruidQuery::withWindowProject
         ),
         new DruidQueryRule<>(
             Aggregate.class,
@@ -278,9 +289,9 @@ public class DruidRules
     @Override
     public boolean matches(final RelOptRuleCall call)
     {
-      // Subquery must be a groupBy, so stage must be >= AGGREGATE.
+      // Subquery must be a groupBy/window, so stage must be >= WINDOW.
       final DruidRel druidRel = call.rel(call.getRelList().size() - 1);
-      return druidRel.getPartialDruidQuery().stage().compareTo(PartialDruidQuery.Stage.AGGREGATE) >= 0;
+      return druidRel.getPartialDruidQuery().stage().compareTo(PartialDruidQuery.Stage.WINDOW) >= 0;
     }
   }
 }
