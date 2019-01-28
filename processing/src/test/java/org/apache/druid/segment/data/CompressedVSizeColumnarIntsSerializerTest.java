@@ -210,7 +210,8 @@ public class CompressedVSizeColumnarIntsSerializerTest
 
     final SmooshedWriter channel = smoosher.addWithSmooshedWriter(
         "test",
-        writer.getSerializedSize()
+        writer.getSerializedSize(),
+        false
     );
     writer.writeTo(channel, smoosher);
     channel.close();

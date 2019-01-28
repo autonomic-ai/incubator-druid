@@ -267,7 +267,7 @@ public class V3CompressedVSizeColumnarMultiIntsSerializerTest
         writer.addValues(new ArrayBasedIndexedInts(val));
       }
 
-      final SmooshedWriter channel = smoosher.addWithSmooshedWriter("test", writer.getSerializedSize());
+      final SmooshedWriter channel = smoosher.addWithSmooshedWriter("test", writer.getSerializedSize(), false);
       writer.writeTo(channel, smoosher);
       channel.close();
       smoosher.close();

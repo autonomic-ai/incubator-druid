@@ -352,7 +352,7 @@ public class GenericIndexedWriter<T> implements Serializer
         long numBytesToPutInFile = valuePosition - previousValuePosition;
 
         try (SmooshedWriter smooshChannel = smoosher
-            .addWithSmooshedWriter(generateValueFileName(filenameBase, i), numBytesToPutInFile)) {
+            .addWithSmooshedWriter(generateValueFileName(filenameBase, i), numBytesToPutInFile, false)) {
           writeBytesIntoSmooshedChannel(numBytesToPutInFile, buffer, smooshChannel, is);
           previousValuePosition = valuePosition;
         }
@@ -433,7 +433,7 @@ public class GenericIndexedWriter<T> implements Serializer
     long relativeRefBytes = 0;
     long relativeNumBytes;
     try (SmooshedWriter smooshChannel = smoosher
-        .addWithSmooshedWriter(generateHeaderFileName(filenameBase), numWritten * Integer.BYTES)) {
+        .addWithSmooshedWriter(generateHeaderFileName(filenameBase), numWritten * Integer.BYTES, false)) {
 
       // following block converts long header indexes into int header indexes.
       for (int pos = 0; pos < numWritten; pos++) {
