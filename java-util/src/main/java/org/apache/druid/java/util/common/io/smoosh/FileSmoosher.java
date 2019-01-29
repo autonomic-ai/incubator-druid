@@ -83,8 +83,10 @@ public class FileSmoosher implements Closeable
   private List<File> completedFiles = Lists.newArrayList();
   // list of files in process writing content using delegated smooshedWriter.
   private List<File> filesInProcess = Lists.newArrayList();
-  // list of files in process writing content using big column smooshedWriter.
-  private List<File> bigColumnFiles = Lists.newArrayList();
+  // list of big column files in process writing content using delegated smooshedWriter.
+  private List<File> bigColumnFilesInProcess = Lists.newArrayList();
+  // list of big column files completed writing content using delegated smooshedWriter.
+  private List<File> bigColumnFilesCompleted = Lists.newArrayList();
 
   private Outer currOut = null;
   private boolean writerCurrentlyInUse = false;
@@ -156,30 +158,24 @@ public class FileSmoosher implements Closeable
     }
   }
 
-  public SmooshedWriter addWithSmooshedWriter(final String name, final long size, final boolean bigColumn) throws IOException
+  public SmooshedWriter addWithSmooshedWriter(final String name, final long size, final boolean isbigColumn) throws IOException
   {
 
     if (size > maxChunkSize) {
       throw new IAE("Asked to add buffers[%,d] larger than configured max[%,d]", size, maxChunkSize);
     }
 
-    // If write a big column, then create a new SmooshedWriter which
-    // writes into temporary file which will be merged when close
-    if (bigColumn) {
-      return bigColumnSmooshedWriter(name, size);
-    }
-
     // If current writer is in use then create a new SmooshedWriter which
     // writes into temporary file which is later merged into original
     // FileSmoosher.
     if (writerCurrentlyInUse) {
-      return delegateSmooshedWriter(name, size);
+      return delegateSmooshedWriter(name, size, isbigColumn);
     }
 
     if (currOut == null) {
       currOut = getNewCurrOut();
     }
-    if (currOut.bytesLeft() < size) {
+    if (currOut.bytesLeft() < size || isbigColumn) {
       currOut.close();
       currOut = getNewCurrOut();
     }
@@ -265,6 +261,22 @@ public class FileSmoosher implements Closeable
         LOG.warn("Unable to delete file [%s]", file);
       }
     }
+
+    if (bigColumnFilesCompleted.isEmpty()) {
+      return;
+    }
+
+    currOut.close();
+    currOut = getNewCurrOut();
+
+    List<File> bigColumnFileToProcess = new ArrayList<>(bigColumnFilesCompleted);
+    bigColumnFilesCompleted = Lists.newArrayList();
+    for (File file : bigColumnFileToProcess) {
+      add(file);
+      if (!file.delete()) {
+        LOG.warn("Unable to delete file [%s]", file);
+      }
+    }
   }
 
   /**
@@ -279,10 +291,14 @@ public class FileSmoosher implements Closeable
    *
    * @throws IOException
    */
-  private SmooshedWriter delegateSmooshedWriter(final String name, final long size) throws IOException
+  private SmooshedWriter delegateSmooshedWriter(final String name, final long size, final boolean isBigColumn) throws IOException
   {
     final File tmpFile = new File(baseDir, name);
-    filesInProcess.add(tmpFile);
+    if (isBigColumn) {
+      bigColumnFilesInProcess.add(tmpFile);
+    } else {
+      filesInProcess.add(tmpFile);
+    }
 
     return new SmooshedWriter()
     {
@@ -300,8 +316,13 @@ public class FileSmoosher implements Closeable
       public void close() throws IOException
       {
         channel.close();
-        completedFiles.add(tmpFile);
-        filesInProcess.remove(tmpFile);
+        if (isBigColumn) {
+          bigColumnFilesCompleted.add(tmpFile);
+          bigColumnFilesInProcess.remove(tmpFile);
+        } else {
+          completedFiles.add(tmpFile);
+          filesInProcess.remove(tmpFile);
+        }
 
         if (!writerCurrentlyInUse) {
           mergeWithSmoosher();
@@ -354,9 +375,8 @@ public class FileSmoosher implements Closeable
   @Override
   public void close() throws IOException
   {
-    mergeBigColumnWithSmoosher();
     //book keeping checks on created file.
-    if (!completedFiles.isEmpty() || !filesInProcess.isEmpty() || !bigColumnFiles.isEmpty()) {
+    if (!completedFiles.isEmpty() || !filesInProcess.isEmpty() || !bigColumnFilesInProcess.isEmpty() || !bigColumnFilesCompleted.isEmpty()) {
       for (File file : completedFiles) {
         if (!file.delete()) {
           LOG.warn("Unable to delete file [%s]", file);
@@ -367,7 +387,12 @@ public class FileSmoosher implements Closeable
           LOG.warn("Unable to delete file [%s]", file);
         }
       }
-      for (File file : bigColumnFiles) {
+      for (File file : bigColumnFilesInProcess) {
+        if (!file.delete()) {
+          LOG.warn("Unable to delete file [%s]", file);
+        }
+      }
+      for (File file : bigColumnFilesCompleted) {
         if (!file.delete()) {
           LOG.warn("Unable to delete file [%s]", file);
         }
@@ -485,86 +510,6 @@ public class FileSmoosher implements Closeable
     {
       closer.close();
       FileSmoosher.LOG.info("Created smoosh file [%s] of size [%s] bytes.", outFile.getAbsolutePath(), outFile.length());
-    }
-  }
-
-  private SmooshedWriter bigColumnSmooshedWriter(final String name, final long size) throws IOException
-  {
-    final File bigColumnFile = new File(baseDir, name);
-    bigColumnFiles.add(bigColumnFile);
-
-    return new SmooshedWriter()
-    {
-      private final GatheringByteChannel channel =
-          FileChannel.open(
-              bigColumnFile.toPath(),
-              StandardOpenOption.WRITE,
-              StandardOpenOption.CREATE,
-              StandardOpenOption.TRUNCATE_EXISTING
-          );
-
-      private int currOffset = 0;
-
-      @Override
-      public void close() throws IOException
-      {
-        channel.close();
-      }
-
-      public int bytesLeft()
-      {
-        return (int) (size - currOffset);
-      }
-
-      @Override
-      public int write(ByteBuffer buffer) throws IOException
-      {
-        return addToOffset(channel.write(buffer));
-      }
-
-      @Override
-      public long write(ByteBuffer[] srcs, int offset, int length) throws IOException
-      {
-        return addToOffset(channel.write(srcs, offset, length));
-      }
-
-      @Override
-      public long write(ByteBuffer[] srcs) throws IOException
-      {
-        return addToOffset(channel.write(srcs));
-      }
-
-      public int addToOffset(long numBytesWritten)
-      {
-        if (numBytesWritten > bytesLeft()) {
-          throw new ISE("Wrote more bytes[%,d] than available[%,d]. Don't do that.", numBytesWritten, bytesLeft());
-        }
-        currOffset += numBytesWritten;
-
-        return Ints.checkedCast(numBytesWritten);
-      }
-
-      @Override
-      public boolean isOpen()
-      {
-        return channel.isOpen();
-      }
-
-    };
-
-  }
-
-  private void mergeBigColumnWithSmoosher() throws IOException
-  {
-    currOut.close();
-    currOut = getNewCurrOut();
-    List<File> bigColumnFilestoProcess = new ArrayList<>(bigColumnFiles);
-    for (File file : bigColumnFilestoProcess) {
-      add(file);
-      bigColumnFiles.remove(file);
-      if (!file.delete()) {
-        LOG.warn("Unable to delete file [%s]", file);
-      }
     }
   }
 }
