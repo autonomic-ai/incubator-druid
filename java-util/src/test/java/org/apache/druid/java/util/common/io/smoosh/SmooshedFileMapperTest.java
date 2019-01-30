@@ -196,7 +196,6 @@ public class SmooshedFileMapperTest
   {
     File[] files = baseDir.listFiles();
     Arrays.sort(files);
-
     Assert.assertEquals(5, files.length); // 4 smooshed files and 1 meta file
     for (int i = 0; i < 4; ++i) {
       Assert.assertEquals(FileSmoosher.makeChunkFile(baseDir, i), files[i]);
