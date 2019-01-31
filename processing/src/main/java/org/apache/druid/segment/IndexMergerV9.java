@@ -85,7 +85,7 @@ import java.util.stream.Collectors;
 public class IndexMergerV9 implements IndexMerger
 {
   private static final Logger log = new Logger(IndexMergerV9.class);
-  private static final int limitSizeOfColumn = 128;
+  private static final int bigColumnMinSize = 128;
 
   private final ObjectMapper mapper;
   private final IndexIO indexIO;
@@ -213,7 +213,7 @@ public class IndexMergerV9 implements IndexMerger
           indexSpec
       );
 
-      long limitSize = (long) adapters.get(0).getNumRows() * limitSizeOfColumn;
+      long bigColumnMinTotalSize = (long) adapters.get(0).getNumRows() * bigColumnMinSize;
       List<String> bigColumnName = Lists.newArrayList();
       List<ColumnDescriptor> bigColumnDescriptors = Lists.newArrayList();
       List<ZeroCopyByteArrayOutputStream> bigZeroCopyByteArrayOutputStreams = Lists.newArrayList();
@@ -228,7 +228,7 @@ public class IndexMergerV9 implements IndexMerger
         ZeroCopyByteArrayOutputStream specBytes = new ZeroCopyByteArrayOutputStream();
         serializerUtils.writeString(specBytes, mapper.writeValueAsString(columnDesc));
         long size = specBytes.size() + columnDesc.getSerializedSize();
-        if (size < limitSize) {
+        if (size < bigColumnMinTotalSize) {
           makeColumn(v9Smoosher,
               mergedDimensions.get(i),
               columnDesc,
