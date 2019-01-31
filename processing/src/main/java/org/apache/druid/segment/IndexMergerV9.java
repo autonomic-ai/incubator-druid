@@ -85,7 +85,7 @@ import java.util.stream.Collectors;
 public class IndexMergerV9 implements IndexMerger
 {
   private static final Logger log = new Logger(IndexMergerV9.class);
-  private static final int limitSizeOfColumn = 64;
+  private static final int limitSizeOfColumn = 128;
 
   private final ObjectMapper mapper;
   private final IndexIO indexIO;
@@ -217,7 +217,6 @@ public class IndexMergerV9 implements IndexMerger
       List<String> bigColumnName = Lists.newArrayList();
       List<ColumnDescriptor> bigColumnDescriptors = Lists.newArrayList();
       List<ZeroCopyByteArrayOutputStream> bigZeroCopyByteArrayOutputStreams = Lists.newArrayList();
-
       for (int i = 0; i < mergedDimensions.size(); i++) {
         DimensionMergerV9 merger = mergers.get(i);
         merger.writeIndexes(rowNumConversions);
@@ -234,8 +233,7 @@ public class IndexMergerV9 implements IndexMerger
               mergedDimensions.get(i),
               columnDesc,
               specBytes,
-              size,
-              false);
+              size);
         } else {
           bigColumnName.add(mergedDimensions.get(i));
           bigColumnDescriptors.add(columnDesc);
@@ -251,13 +249,13 @@ public class IndexMergerV9 implements IndexMerger
       makeMetadataBinary(v9Smoosher, progress, segmentMetadata);
 
       /************* Make big column files **************/
+      v9Smoosher.createNewFile();
       for (int i = 0; i < bigColumnName.size(); i++) {
         makeColumn(v9Smoosher,
             bigColumnName.get(i),
             bigColumnDescriptors.get(i),
             bigZeroCopyByteArrayOutputStreams.get(i),
-            bigColumnDescriptors.get(i).getSerializedSize() + bigZeroCopyByteArrayOutputStreams.get(i).size(),
-            true);
+            bigColumnDescriptors.get(i).getSerializedSize() + bigZeroCopyByteArrayOutputStreams.get(i).size());
       }
 
       v9Smoosher.close();
@@ -321,7 +319,7 @@ public class IndexMergerV9 implements IndexMerger
                           + 16
                           + serializerUtils.getSerializedStringByteSize(bitmapSerdeFactoryType);
 
-    final SmooshedWriter writer = v9Smoosher.addWithSmooshedWriter("index.drd", numBytes, false);
+    final SmooshedWriter writer = v9Smoosher.addWithSmooshedWriter("index.drd", numBytes);
     cols.writeTo(writer, v9Smoosher);
     dims.writeTo(writer, v9Smoosher);
 
@@ -401,8 +399,8 @@ public class IndexMergerV9 implements IndexMerger
           metric,
           columnDescriptor,
           specBytes,
-          columnDescriptor.getSerializedSize() + specBytes.size(),
-          false);
+          columnDescriptor.getSerializedSize() + specBytes.size()
+      );
       log.info("Completed metric column[%s] in %,d millis.", metric, System.currentTimeMillis() - metricStartTime);
     }
     log.info("Completed metric columns in %,d millis.", System.currentTimeMillis() - startTime);
@@ -483,8 +481,8 @@ public class IndexMergerV9 implements IndexMerger
         ColumnHolder.TIME_COLUMN_NAME,
         serdeficator,
         specBytes,
-        serdeficator.getSerializedSize() + specBytes.size(),
-        false);
+        serdeficator.getSerializedSize() + specBytes.size()
+    );
     log.info("Completed time column in %,d millis.", System.currentTimeMillis() - startTime);
     progress.stopSection(section);
   }
@@ -494,14 +492,12 @@ public class IndexMergerV9 implements IndexMerger
       final String columnName,
       final ColumnDescriptor serdeficator,
       final ZeroCopyByteArrayOutputStream specBytes,
-      final long size,
-      final boolean isBigColumn
+      final long size
   ) throws IOException
   {
     try (SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
         columnName,
-        size,
-        isBigColumn
+        size
     )) {
       specBytes.writeTo(channel);
       serdeficator.writeTo(channel, v9Smoosher);

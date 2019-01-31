@@ -106,8 +106,7 @@ public class LargeColumnSupportedComplexColumnSerializerTest
 
           try (final SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
               "test",
-              serializer.getSerializedSize(),
-              false
+              serializer.getSerializedSize()
           )) {
             serializer.writeTo(channel, v9Smoosher);
           }

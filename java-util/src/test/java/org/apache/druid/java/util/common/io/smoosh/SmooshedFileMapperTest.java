@@ -63,7 +63,7 @@ public class SmooshedFileMapperTest
     File baseDir = folder.newFolder("base");
 
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
-      final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", 19), 4, false);
+      final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", 19), 4);
 
       for (int i = 0; i < 19; ++i) {
         File tmpFile = File.createTempFile(StringUtils.format("smoosh-%s", i), ".bin");
@@ -86,7 +86,7 @@ public class SmooshedFileMapperTest
 
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       for (int i = 0; i < 19; ++i) {
-        final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", i), 4, false);
+        final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", i), 4);
         writer.write(ByteBuffer.wrap(Ints.toByteArray(i)));
       }
     }
@@ -98,7 +98,7 @@ public class SmooshedFileMapperTest
     File baseDir = folder.newFolder("base");
 
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
-      final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", 19), 4, false);
+      final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", 19), 4);
       writer.write(ByteBuffer.wrap(Ints.toByteArray(19)));
 
       for (int i = 0; i < 19; ++i) {
@@ -119,7 +119,7 @@ public class SmooshedFileMapperTest
 
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       for (int i = 0; i < 20; ++i) {
-        final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", i), 7, false);
+        final SmooshedWriter writer = smoosher.addWithSmooshedWriter(StringUtils.format("%d", i), 7);
         writer.write(ByteBuffer.wrap(Ints.toByteArray(i)));
         try {
           writer.close();
@@ -159,7 +159,7 @@ public class SmooshedFileMapperTest
 
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       boolean exceptionThrown = false;
-      try (final SmooshedWriter writer = smoosher.addWithSmooshedWriter("1", 2, false)) {
+      try (final SmooshedWriter writer = smoosher.addWithSmooshedWriter("1", 2)) {
         writer.write(ByteBuffer.wrap(Ints.toByteArray(1)));
       }
       catch (ISE e) {

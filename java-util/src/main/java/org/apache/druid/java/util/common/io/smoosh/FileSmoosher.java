@@ -83,10 +83,6 @@ public class FileSmoosher implements Closeable
   private List<File> completedFiles = Lists.newArrayList();
   // list of files in process writing content using delegated smooshedWriter.
   private List<File> filesInProcess = Lists.newArrayList();
-  // list of big column files in process writing content using delegated smooshedWriter.
-  private List<File> bigColumnFilesInProcess = Lists.newArrayList();
-  // list of big column files completed writing content using delegated smooshedWriter.
-  private List<File> bigColumnFilesCompleted = Lists.newArrayList();
 
   private Outer currOut = null;
   private boolean writerCurrentlyInUse = false;
@@ -151,14 +147,20 @@ public class FileSmoosher implements Closeable
       size += buffer.remaining();
     }
 
-    try (SmooshedWriter out = addWithSmooshedWriter(name, size, false)) {
+    try (SmooshedWriter out = addWithSmooshedWriter(name, size)) {
       for (ByteBuffer buffer : bufferToAdd) {
         out.write(buffer);
       }
     }
   }
 
-  public SmooshedWriter addWithSmooshedWriter(final String name, final long size, final boolean isbigColumn) throws IOException
+  public void createNewFile() throws IOException
+  {
+    currOut.close();
+    currOut = getNewCurrOut();
+  }
+
+  public SmooshedWriter addWithSmooshedWriter(final String name, final long size) throws IOException
   {
 
     if (size > maxChunkSize) {
@@ -169,13 +171,13 @@ public class FileSmoosher implements Closeable
     // writes into temporary file which is later merged into original
     // FileSmoosher.
     if (writerCurrentlyInUse) {
-      return delegateSmooshedWriter(name, size, isbigColumn);
+      return delegateSmooshedWriter(name, size);
     }
 
     if (currOut == null) {
       currOut = getNewCurrOut();
     }
-    if (currOut.bytesLeft() < size || isbigColumn) {
+    if (currOut.bytesLeft() < size) {
       currOut.close();
       currOut = getNewCurrOut();
     }
@@ -261,22 +263,6 @@ public class FileSmoosher implements Closeable
         LOG.warn("Unable to delete file [%s]", file);
       }
     }
-
-    if (bigColumnFilesCompleted.isEmpty()) {
-      return;
-    }
-
-    currOut.close();
-    currOut = getNewCurrOut();
-
-    List<File> bigColumnFileToProcess = new ArrayList<>(bigColumnFilesCompleted);
-    bigColumnFilesCompleted = Lists.newArrayList();
-    for (File file : bigColumnFileToProcess) {
-      add(file);
-      if (!file.delete()) {
-        LOG.warn("Unable to delete file [%s]", file);
-      }
-    }
   }
 
   /**
@@ -291,14 +277,10 @@ public class FileSmoosher implements Closeable
    *
    * @throws IOException
    */
-  private SmooshedWriter delegateSmooshedWriter(final String name, final long size, final boolean isBigColumn) throws IOException
+  private SmooshedWriter delegateSmooshedWriter(final String name, final long size) throws IOException
   {
     final File tmpFile = new File(baseDir, name);
-    if (isBigColumn) {
-      bigColumnFilesInProcess.add(tmpFile);
-    } else {
-      filesInProcess.add(tmpFile);
-    }
+    filesInProcess.add(tmpFile);
 
     return new SmooshedWriter()
     {
@@ -316,13 +298,8 @@ public class FileSmoosher implements Closeable
       public void close() throws IOException
       {
         channel.close();
-        if (isBigColumn) {
-          bigColumnFilesCompleted.add(tmpFile);
-          bigColumnFilesInProcess.remove(tmpFile);
-        } else {
-          completedFiles.add(tmpFile);
-          filesInProcess.remove(tmpFile);
-        }
+        completedFiles.add(tmpFile);
+        filesInProcess.remove(tmpFile);
 
         if (!writerCurrentlyInUse) {
           mergeWithSmoosher();
@@ -376,23 +353,13 @@ public class FileSmoosher implements Closeable
   public void close() throws IOException
   {
     //book keeping checks on created file.
-    if (!completedFiles.isEmpty() || !filesInProcess.isEmpty() || !bigColumnFilesInProcess.isEmpty() || !bigColumnFilesCompleted.isEmpty()) {
+    if (!completedFiles.isEmpty() || !filesInProcess.isEmpty()) {
       for (File file : completedFiles) {
         if (!file.delete()) {
           LOG.warn("Unable to delete file [%s]", file);
         }
       }
       for (File file : filesInProcess) {
-        if (!file.delete()) {
-          LOG.warn("Unable to delete file [%s]", file);
-        }
-      }
-      for (File file : bigColumnFilesInProcess) {
-        if (!file.delete()) {
-          LOG.warn("Unable to delete file [%s]", file);
-        }
-      }
-      for (File file : bigColumnFilesCompleted) {
         if (!file.delete()) {
           LOG.warn("Unable to delete file [%s]", file);
         }
