@@ -214,9 +214,10 @@ public class IndexMergerV9 implements IndexMerger
       );
 
       long bigColumnMinTotalSize = (long) adapters.get(0).getNumRows() * bigColumnMinSize;
-      List<String> bigColumnName = Lists.newArrayList();
+      List<String> bigColumnNames = Lists.newArrayList();
       List<ColumnDescriptor> bigColumnDescriptors = Lists.newArrayList();
       List<ZeroCopyByteArrayOutputStream> bigZeroCopyByteArrayOutputStreams = Lists.newArrayList();
+      List<Long> bigColumnSizes = Lists.newArrayList();
       for (int i = 0; i < mergedDimensions.size(); i++) {
         DimensionMergerV9 merger = mergers.get(i);
         merger.writeIndexes(rowNumConversions);
@@ -235,9 +236,10 @@ public class IndexMergerV9 implements IndexMerger
               specBytes,
               size);
         } else {
-          bigColumnName.add(mergedDimensions.get(i));
+          bigColumnNames.add(mergedDimensions.get(i));
           bigColumnDescriptors.add(columnDesc);
           bigZeroCopyByteArrayOutputStreams.add(specBytes);
+          bigColumnSizes.add(size);
         }
       }
 
@@ -250,12 +252,12 @@ public class IndexMergerV9 implements IndexMerger
 
       /************* Make big column files **************/
       v9Smoosher.createNewFile();
-      for (int i = 0; i < bigColumnName.size(); i++) {
+      for (int i = 0; i < bigColumnNames.size(); i++) {
         makeColumn(v9Smoosher,
-            bigColumnName.get(i),
+            bigColumnNames.get(i),
             bigColumnDescriptors.get(i),
             bigZeroCopyByteArrayOutputStreams.get(i),
-            bigColumnDescriptors.get(i).getSerializedSize() + bigZeroCopyByteArrayOutputStreams.get(i).size());
+            bigColumnSizes.get(i));
       }
 
       v9Smoosher.close();
