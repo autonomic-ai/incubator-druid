@@ -103,6 +103,9 @@ import java.util.stream.Collectors;
  */
 public class DruidQuery
 {
+  public static final String WINDOW_QUERY_CONTEXT_NAME = "windowQuery";
+  public static final String WINDOW_QUERY_TEST_CONTEXT = "windowQueryTest";
+
   private final DataSource dataSource;
   private final RowSignature sourceRowSignature;
   private final PlannerContext plannerContext;
@@ -369,7 +372,7 @@ public class DruidQuery
     if (druidExpression != null) {
       final SqlTypeName sqlTypeName = rexNode.getType().getSqlTypeName();
       final ValueType outputType = Calcites.getValueTypeForSqlTypeName(sqlTypeName);
-      if (outputType != null && outputType != ValueType.COMPLEX) {
+      if (outputType != null) {
         return new DimensionExpression(dimOutputName, druidExpression, outputType);
       }
     }
@@ -422,7 +425,9 @@ public class DruidQuery
     int numDimensions = window.getRowType().getFieldCount() - aggregations.size();
     for (int i = 0; i < numDimensions; i++) {
       final String dimOutputName = outputNamePrefix + outputNameCounter++;
-      dimensions.add(createWindowDimensionExpression(partialQuery, plannerContext, sourceRowSignature, dimOutputName, i));
+      DimensionExpression dimensionExpression = createWindowDimensionExpression(
+          partialQuery, plannerContext, sourceRowSignature, dimOutputName, i);
+      dimensions.add(dimensionExpression);
     }
 
     return dimensions;
@@ -1148,6 +1153,40 @@ public class DruidQuery
     );
   }
 
+  private WindowQueryFactory getWindowQueryFactory()
+  {
+    // We use "windowQuery" context to pass in the actual implementation of GroupByOverWindowQuery.
+    // The "windowQuery" context is a string with this format:
+    //      <window_query_extensions_dir>:<WindowQueryFactory_Implementation_ClassName>
+    //
+    // <window_query_extensions_dir> can be WINDOW_QUERY_TEXT_CONTEXT for unittests.
+    Object windowQuery = plannerContext.getQueryContext().get(WINDOW_QUERY_CONTEXT_NAME);
+    if (windowQuery == null) {
+      throw new ISE("Missing windowQuery context");
+    }
+
+    String windowQueryContext = (String) windowQuery;
+    String[] contextParts = windowQueryContext.split(":");
+
+    if (contextParts.length != 2) {
+      throw new ISE("Invalid windowQuery context: " + windowQueryContext);
+    }
+
+    try {
+      WindowQueryFactory queryFactory;
+      if (contextParts[0].equals(WINDOW_QUERY_TEST_CONTEXT)) {
+        queryFactory = (WindowQueryFactory) Class.forName(contextParts[1]).newInstance();
+      } else {
+        URLClassLoader loader = Initialization.getClassLoaderForExtension(new File(contextParts[0]), true);
+        queryFactory = (WindowQueryFactory) loader.loadClass(contextParts[1]).newInstance();
+      }
+      return queryFactory;
+    }
+    catch (ClassNotFoundException | InstantiationException | IllegalAccessException exp) {
+      throw new CannotBuildQueryException("Can not access Class " + windowQuery + ": " + exp.getMessage());
+    }
+  }
+
   /**
    * Return this query as a GroupBy query, or null if this query is not compatible with GroupBy.
    *
@@ -1183,40 +1222,22 @@ public class DruidQuery
         ImmutableSortedMap.copyOf(plannerContext.getQueryContext())
       );
     } else {
-      // We use "windowQuery" context to pass in the actual implementation of GroupByOverWindowQuery.
-      // The "windowQuery" context is a string with this format:
-      //      <window_query_extensions_dir>:<WindowQueryFactory_Implementation_ClassName>
-      Object windowQuery = plannerContext.getQueryContext().get("windowQuery");
-      if (windowQuery == null) {
-        throw new ISE("Missing windowQuery context");
-      }
+      WindowQueryFactory queryFactory = getWindowQueryFactory();
+      return queryFactory.factorize(
+          dataSource,
+          filtration.getQuerySegmentSpec(),
+          getVirtualColumns(plannerContext.getExprMacroTable(), true),
+          filtration.getDimFilter(),
+          Granularities.ALL,
+          grouping.getDimensionSpecs(),
+          grouping.getAggregatorFactories(),
+          postAggregators,
+          grouping.getHavingFilter() != null ? new DimFilterHavingSpec(grouping.getHavingFilter(), true) : null,
+          limitSpec,
+          null,
+          ImmutableSortedMap.copyOf(plannerContext.getQueryContext())
+      );
 
-      String windowQueryContext = (String) windowQuery;
-      String[] contextParts = windowQueryContext.split(":");
-
-      if (contextParts.length != 2) {
-        throw new ISE("Invalid windowQuery context: " + windowQueryContext);
-      }
-
-      try {
-        URLClassLoader loader = Initialization.getClassLoaderForExtension(new File(contextParts[0]), true);
-        WindowQueryFactory queryFactory = (WindowQueryFactory) loader.loadClass(contextParts[1]).newInstance();
-        return queryFactory.factorize(dataSource,
-                                      filtration.getQuerySegmentSpec(),
-                                      getVirtualColumns(plannerContext.getExprMacroTable(), true),
-                                      filtration.getDimFilter(),
-                                      Granularities.ALL,
-                                      grouping.getDimensionSpecs(),
-                                      grouping.getAggregatorFactories(),
-                                      postAggregators,
-                                      grouping.getHavingFilter() != null ? new DimFilterHavingSpec(grouping.getHavingFilter(), true) : null,
-                                      limitSpec,
-                                      null,
-                                      ImmutableSortedMap.copyOf(plannerContext.getQueryContext()));
-      }
-      catch (ClassNotFoundException | InstantiationException | IllegalAccessException exp) {
-        throw new CannotBuildQueryException("Can not access Class " + windowQuery + ": " + exp.getMessage());
-      }
     }
   }
 
@@ -1232,41 +1253,19 @@ public class DruidQuery
       return null;
     }
 
-    // We use "windowQuery" context to pass in the actual implementation of WindowQuery.
-    // The "windowQuery" context is a string with this format:
-    //      <window_query_extensions_dir>:<WindowQueryFactory_Implementation_ClassName>
-    Object windowQuery = plannerContext.getQueryContext().get("windowQuery");
-    if (windowQuery == null) {
-      throw new ISE("Missing windowQuery context");
-    }
-
-    String windowQueryContext = (String) windowQuery;
-    String[] contextParts = windowQueryContext.split(":");
-
-    if (contextParts.length != 2) {
-      throw new ISE("Invalid windowQuery context: " + windowQueryContext);
-    }
-
+    WindowQueryFactory queryFactory = getWindowQueryFactory();
     final Filtration filtration = Filtration.create(filter).optimize(sourceRowSignature);
-
-    try {
-      URLClassLoader loader = Initialization.getClassLoaderForExtension(new File(contextParts[0]), true);
-      WindowQueryFactory queryFactory = (WindowQueryFactory) loader.loadClass(contextParts[1]).newInstance();
-      return queryFactory.factorize(
-          dataSource,
-          filtration.getQuerySegmentSpec(),
-          windowing.getDimensionSpecs(),
-          windowing.getAggregatorFactories(),
-          windowing.getPostAggregators(),
-          windowing.getPartitionSpecs(),
-          filtration.getDimFilter(),
-          limitSpec,
-          ImmutableSortedMap.copyOf(plannerContext.getQueryContext())
-      );
-    }
-    catch (ClassNotFoundException | InstantiationException | IllegalAccessException exp) {
-      throw new CannotBuildQueryException("Can not access Class " + windowQuery + ": " + exp.getMessage());
-    }
+    return queryFactory.factorize(
+        dataSource,
+        filtration.getQuerySegmentSpec(),
+        windowing.getDimensionSpecs(),
+        windowing.getAggregatorFactories(),
+        windowing.getPostAggregators(),
+        windowing.getPartitionSpecs(),
+        filtration.getDimFilter(),
+        limitSpec,
+        ImmutableSortedMap.copyOf(plannerContext.getQueryContext())
+    );
   }
 
   /**
