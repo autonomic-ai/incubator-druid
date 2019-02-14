@@ -21,10 +21,13 @@ package org.apache.druid.segment;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import java.io.IOException;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
+import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.Indexed;
@@ -47,6 +50,7 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
   @Nullable
   private final Metadata metadata;
   private final Map<String, DimensionHandler> dimensionHandlers;
+  private static final EmittingLogger log = new EmittingLogger(SimpleQueryableIndex.class);
 
   public SimpleQueryableIndex(
       Interval dataInterval, Indexed<String> dimNames,
@@ -136,6 +140,21 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
   @Override
   public ColumnHolder getColumnHolder(String columnName)
   {
+    ColumnHolder columnHolder = columns.get(columnName);
+    if (columnHolder instanceof LazyColumnHolder) {
+      try {
+        columns.put(columnName, ((LazyColumnHolder) columnHolder).deserializeColumn());
+      }
+      catch (IOException e) {
+        log.makeAlert(e, "Lazy cache failed for column %s", columnName)
+            .emit();
+        throw Throwables.propagate(e);
+      }
+
+      ColumnCapabilities capabilities = columnHolder.getCapabilities();
+      DimensionHandler handler = DimensionHandlerUtils.getHandlerFromCapabilities(columnName, capabilities, null);
+      dimensionHandlers.put(columnName, handler);
+    }
     return columns.get(columnName);
   }
 
@@ -172,6 +191,9 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
   private void initDimensionHandlers()
   {
     for (String dim : availableDimensions) {
+      if (columns.get(dim) instanceof LazyColumnHolder) {
+        continue;
+      }
       ColumnCapabilities capabilities = getColumnHolder(dim).getCapabilities();
       DimensionHandler handler = DimensionHandlerUtils.getHandlerFromCapabilities(dim, capabilities, null);
       dimensionHandlers.put(dim, handler);

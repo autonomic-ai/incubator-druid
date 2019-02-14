@@ -21,6 +21,7 @@ package org.apache.druid.java.util.common.io.smoosh;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
 import org.apache.druid.java.util.common.ByteBufferUtils;
@@ -73,19 +74,25 @@ public class SmooshedFileMapper implements Closeable
       }
 
       Map<String, Metadata> internalFiles = Maps.newTreeMap();
+      Set<String> bigColumns = Sets.newHashSet();
       while ((line = in.readLine()) != null) {
         splits = line.split(",");
 
         if (splits.length != 4) {
           throw new ISE("Wrong number of splits[%d] in line[%s]", splits.length, line);
         }
+
+        if (Integer.parseInt(splits[1]) == numFiles - 1) {
+          bigColumns.add(splits[0]);
+        }
+
         internalFiles.put(
             splits[0],
             new Metadata(Integer.parseInt(splits[1]), Integer.parseInt(splits[2]), Integer.parseInt(splits[3]))
         );
       }
 
-      return new SmooshedFileMapper(outFiles, internalFiles);
+      return new SmooshedFileMapper(outFiles, internalFiles, bigColumns);
     }
     finally {
       Closeables.close(in, false);
@@ -95,16 +102,23 @@ public class SmooshedFileMapper implements Closeable
   private final List<File> outFiles;
   private final Map<String, Metadata> internalFiles;
   private final List<MappedByteBuffer> buffersList = Lists.newArrayList();
+  private final Set<String> bigColumns;
 
   private SmooshedFileMapper(
       List<File> outFiles,
-      Map<String, Metadata> internalFiles
+      Map<String, Metadata> internalFiles,
+      Set<String> bigColumns
   )
   {
     this.outFiles = outFiles;
     this.internalFiles = internalFiles;
+    this.bigColumns = bigColumns;
   }
 
+  public boolean isBigColumn(String columnName)
+  {
+    return bigColumns.contains(columnName);
+  }
   public Set<String> getInternalFilenames()
   {
     return internalFiles.keySet();

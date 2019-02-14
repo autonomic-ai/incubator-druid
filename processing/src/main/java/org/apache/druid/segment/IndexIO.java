@@ -590,6 +590,10 @@ public class IndexIO
           log.warn("Null or Empty Dimension found in the file : " + inDir);
           continue;
         }
+        if (smooshedFiles.isBigColumn(columnName)) {
+          columns.put(columnName, new LazyColumnHolder(columnName, mapper, smooshedFiles, columnConfig, serializerUtils));
+          continue;
+        }
         columns.put(columnName, deserializeColumn(mapper, smooshedFiles.mapFile(columnName), smooshedFiles));
       }
 
