@@ -81,8 +81,8 @@ public class SmooshedFileMapper implements Closeable
         if (splits.length != 4) {
           throw new ISE("Wrong number of splits[%d] in line[%s]", splits.length, line);
         }
-
-        if (Integer.parseInt(splits[1]) == numFiles - 1) {
+        // TODO need a better way to find big file
+        if (numFiles != 1 && Integer.parseInt(splits[1]) == numFiles - 1) {
           bigColumns.add(splits[0]);
         }
 

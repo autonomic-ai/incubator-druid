@@ -57,6 +57,7 @@ public class LazyColumnHolder implements ColumnHolder
     this.columnConfig = columnConfig;
     this.serializerUtils = serializerUtils;
     this.capabilities = new ColumnCapabilitiesImpl()
+        // TODO use different value type according to column
         .setType(ValueType.valueOf("STRING"))
         .setDictionaryEncoded(false)
         .setHasBitmapIndexes(false)
