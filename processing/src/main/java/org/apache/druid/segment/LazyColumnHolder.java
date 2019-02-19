@@ -28,10 +28,12 @@ import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
+import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnDescriptor;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.SpatialIndex;
+import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
 
 public class LazyColumnHolder implements ColumnHolder
@@ -41,6 +43,7 @@ public class LazyColumnHolder implements ColumnHolder
   private SmooshedFileMapper smooshedFiles;
   private SerializerUtils serializerUtils;
   private ColumnConfig columnConfig;
+  private ColumnCapabilities capabilities;
 
   LazyColumnHolder(String columnName,
       ObjectMapper objectMapper,
@@ -53,6 +56,12 @@ public class LazyColumnHolder implements ColumnHolder
     this.smooshedFiles = smooshedFileMapper;
     this.columnConfig = columnConfig;
     this.serializerUtils = serializerUtils;
+    this.capabilities = new ColumnCapabilitiesImpl()
+        .setType(ValueType.valueOf("STRING"))
+        .setDictionaryEncoded(false)
+        .setHasBitmapIndexes(false)
+        .setHasSpatialIndexes(false)
+        .setHasMultipleValues(false);
   }
 
   @Override

@@ -24,9 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import java.io.IOException;
-import java.util.Set;
 import org.apache.druid.collections.bitmap.BitmapFactory;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import org.apache.druid.java.util.emitter.EmittingLogger;
@@ -53,7 +51,6 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
   private final Metadata metadata;
   private final Map<String, DimensionHandler> dimensionHandlers;
   private static final EmittingLogger log = new EmittingLogger(SimpleQueryableIndex.class);
-  private final Set<String> dims;
 
   public SimpleQueryableIndex(
       Interval dataInterval, Indexed<String> dimNames,
@@ -78,7 +75,6 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
     this.fileMapper = fileMapper;
     this.metadata = metadata;
     this.dimensionHandlers = Maps.newLinkedHashMap();
-    this.dims = Sets.newLinkedHashSet();
     initDimensionHandlers();
   }
 
@@ -102,7 +98,6 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
     this.fileMapper = fileMapper;
     this.metadata = metadata;
     this.dimensionHandlers = dimensionHandlers;
-    this.dims = Sets.newLinkedHashSet();
   }
 
   @Override
@@ -156,12 +151,6 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
         throw Throwables.propagate(e);
       }
 
-      if (dims.contains(columnName)) {
-        ColumnCapabilities capabilities = columnHolder.getCapabilities();
-        DimensionHandler handler = DimensionHandlerUtils
-            .getHandlerFromCapabilities(columnName, capabilities, null);
-        dimensionHandlers.put(columnName, handler);
-      }
     }
     return columns.get(columnName);
   }
@@ -199,10 +188,6 @@ public class SimpleQueryableIndex extends AbstractIndex implements QueryableInde
   private void initDimensionHandlers()
   {
     for (String dim : availableDimensions) {
-      if (columns.get(dim) instanceof LazyColumnHolder) {
-        dims.add(dim);
-        continue;
-      }
       ColumnCapabilities capabilities = getColumnHolder(dim).getCapabilities();
       DimensionHandler handler = DimensionHandlerUtils.getHandlerFromCapabilities(dim, capabilities, null);
       dimensionHandlers.put(dim, handler);
