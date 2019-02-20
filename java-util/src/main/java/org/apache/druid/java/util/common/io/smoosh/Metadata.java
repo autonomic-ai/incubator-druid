@@ -26,16 +26,19 @@ class Metadata
   private final int fileNum;
   private final int startOffset;
   private final int endOffset;
+  private final boolean isBigColumn;
 
   Metadata(
       int fileNum,
       int startOffset,
-      int endOffset
+      int endOffset,
+      boolean isBigColumn
   )
   {
     this.fileNum = fileNum;
     this.startOffset = startOffset;
     this.endOffset = endOffset;
+    this.isBigColumn = isBigColumn;
   }
 
   public int getFileNum()
@@ -51,5 +54,10 @@ class Metadata
   public int getEndOffset()
   {
     return endOffset;
+  }
+
+  public boolean isBigColumn()
+  {
+    return isBigColumn;
   }
 }

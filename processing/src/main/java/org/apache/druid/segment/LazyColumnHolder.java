@@ -20,20 +20,20 @@
 package org.apache.druid.segment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Throwables;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nullable;
 import org.apache.druid.common.utils.SerializerUtils;
 import org.apache.druid.java.util.common.io.smoosh.SmooshedFileMapper;
+import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.segment.column.BaseColumn;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnCapabilities;
-import org.apache.druid.segment.column.ColumnCapabilitiesImpl;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnDescriptor;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.column.SpatialIndex;
-import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.selector.settable.SettableColumnValueSelector;
 
 public class LazyColumnHolder implements ColumnHolder
@@ -43,7 +43,9 @@ public class LazyColumnHolder implements ColumnHolder
   private SmooshedFileMapper smooshedFiles;
   private SerializerUtils serializerUtils;
   private ColumnConfig columnConfig;
-  private ColumnCapabilities capabilities;
+  @Nullable
+  private ColumnHolder columnHolder;
+  private static final EmittingLogger log = new EmittingLogger(LazyColumnHolder.class);
 
   LazyColumnHolder(String columnName,
       ObjectMapper objectMapper,
@@ -56,60 +58,72 @@ public class LazyColumnHolder implements ColumnHolder
     this.smooshedFiles = smooshedFileMapper;
     this.columnConfig = columnConfig;
     this.serializerUtils = serializerUtils;
-    this.capabilities = new ColumnCapabilitiesImpl()
-        // TODO use different value type according to column
-        .setType(ValueType.valueOf("STRING"))
-        .setDictionaryEncoded(false)
-        .setHasBitmapIndexes(false)
-        .setHasSpatialIndexes(false)
-        .setHasMultipleValues(false);
   }
 
   @Override
   public ColumnCapabilities getCapabilities()
   {
-    return null;
+    checkAndInit();
+    return columnHolder.getCapabilities();
   }
 
   @Override
   public int getLength()
   {
-    return 0;
+    checkAndInit();
+    return columnHolder.getLength();
   }
 
   @Override
   public BaseColumn getColumn()
   {
-    return null;
+    checkAndInit();
+    return columnHolder.getColumn();
   }
 
   @Nullable
   @Override
   public BitmapIndex getBitmapIndex()
   {
-    return null;
+    checkAndInit();
+    return columnHolder.getBitmapIndex();
   }
 
   @Nullable
   @Override
   public SpatialIndex getSpatialIndex()
   {
-    return null;
+    checkAndInit();
+    return columnHolder.getSpatialIndex();
   }
 
   @Override
   public SettableColumnValueSelector makeNewSettableColumnValueSelector()
   {
-    return null;
+    checkAndInit();
+    return columnHolder.makeNewSettableColumnValueSelector();
+  }
+
+  private void checkAndInit()
+  {
+    if (columnHolder == null) {
+      columnHolder = deserializeColumn();
+    }
   }
 
   public ColumnHolder deserializeColumn()
-      throws IOException
   {
-    ByteBuffer byteBuffer = smooshedFiles.mapFile(columnName);
-    ColumnDescriptor serde = mapper.readValue(
-        serializerUtils.readString(byteBuffer), ColumnDescriptor.class
-    );
-    return serde.read(byteBuffer, columnConfig, smooshedFiles);
+    try {
+      ByteBuffer byteBuffer = smooshedFiles.mapFile(columnName);
+      ColumnDescriptor serde = mapper.readValue(
+          serializerUtils.readString(byteBuffer), ColumnDescriptor.class
+      );
+      return serde.read(byteBuffer, columnConfig, smooshedFiles);
+    }
+    catch (IOException e) {
+      log.makeAlert(e, "Lazy cache failed for column %s", columnName)
+          .emit();
+      throw Throwables.propagate(e);
+    }
   }
 }

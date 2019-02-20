@@ -86,6 +86,7 @@ public class FileSmoosher implements Closeable
 
   private Outer currOut = null;
   private boolean writerCurrentlyInUse = false;
+  private boolean writtingBigColumns = false;
 
   public FileSmoosher(
       File baseDir
@@ -158,6 +159,7 @@ public class FileSmoosher implements Closeable
   {
     currOut.close();
     currOut = getNewCurrOut();
+    writtingBigColumns = true;
   }
 
   public SmooshedWriter addWithSmooshedWriter(final String name, final long size) throws IOException
@@ -231,7 +233,7 @@ public class FileSmoosher implements Closeable
       public void close() throws IOException
       {
         open = false;
-        internalFiles.put(name, new Metadata(currOut.getFileNum(), startOffset, currOut.getCurrOffset()));
+        internalFiles.put(name, new Metadata(currOut.getFileNum(), startOffset, currOut.getCurrOffset(), writtingBigColumns));
         writerCurrentlyInUse = false;
 
         if (bytesWritten != currOut.getCurrOffset() - startOffset) {
@@ -387,7 +389,8 @@ public class FileSmoosher implements Closeable
                 entry.getKey(),
                 metadata.getFileNum(),
                 metadata.getStartOffset(),
-                metadata.getEndOffset()
+                metadata.getEndOffset(),
+                metadata.isBigColumn()
             )
         );
         out.write("\n");
