@@ -26,7 +26,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.io.Files;
 import it.unimi.dsi.fastutil.ints.IntIterator;
+import java.util.Set;
 import org.apache.druid.collections.bitmap.RoaringBitmapFactory;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.data.input.InputRow;
@@ -339,6 +341,43 @@ public class IndexMergerTestBase
         merged.getMetadata().getAggregators()
     );
   }
+
+
+  @Test
+  public void testPersistBigColumn() throws Exception
+  {
+    final IncrementalIndex toPersist = new IncrementalIndex.Builder()
+        .setSimpleTestingIndexSchema()
+        .setMaxRowCount(10)
+        .buildOnheap();
+    final File tmpDir = Files.createTempDir();
+    StringBuilder bigDimContent = new StringBuilder();
+    for (int i = 0; i < 30; i++) {
+      bigDimContent.append("bigDim");
+    }
+    toPersist.add(
+        new MapBasedInputRow(
+            1L,
+            ImmutableList.of("smallDim", "bigDim"),
+            ImmutableMap.of("smallDim", "smallDim", "bigDim", bigDimContent.toString())
+        )
+    );
+    indexMerger.persist(toPersist, tmpDir, indexSpec, null);
+
+    File[] files = tmpDir.listFiles();
+    Arrays.sort(files);
+    Assert.assertEquals(files.length, 5);
+    Assert.assertEquals(files[0].getName(), "00000.smoosh");
+    Assert.assertEquals(files[1].getName(), "00001.smoosh");
+    try (SmooshedFileMapper smooshedFileMapper = SmooshedFileMapper.load(tmpDir)) {
+      Set<String> dims = smooshedFileMapper.getInternalFilenames();
+      Assert.assertTrue(dims.contains("smallDim"));
+      Assert.assertTrue(dims.contains("bigDim"));
+      Assert.assertTrue(smooshedFileMapper.isBigColumn("bigDim"));
+      Assert.assertFalse(smooshedFileMapper.isBigColumn("smallDim"));
+    }
+  }
+
 
   @Test
   public void testPersistEmptyColumn() throws Exception

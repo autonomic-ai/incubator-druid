@@ -239,21 +239,21 @@ public class IndexMergerV9 implements IndexMerger
           bigColumnSizes.add(size);
         }
       }
-
       progress.stopSection(section);
 
       /************* Make index.drd & metadata.drd files **************/
       progress.progress();
       makeIndexBinary(v9Smoosher, adapters, outDir, mergedDimensions, mergedMetrics, progress, indexSpec, mergers);
       makeMetadataBinary(v9Smoosher, progress, segmentMetadata);
-
       /************* Make big column files **************/
-      v9Smoosher.createNewFile();
-      for (int i = 0; i < bigColumnNames.size(); i++) {
-        makeColumn(v9Smoosher,
-            bigColumnNames.get(i),
-            bigColumnDescriptors.get(i),
-            bigColumnSizes.get(i));
+      if (!bigColumnDescriptors.isEmpty()) {
+        v9Smoosher.createNewFile();
+        for (int i = 0; i < bigColumnNames.size(); i++) {
+          makeColumn(v9Smoosher,
+              bigColumnNames.get(i),
+              bigColumnDescriptors.get(i),
+              bigColumnSizes.get(i));
+        }
       }
 
       v9Smoosher.close();

@@ -121,8 +121,7 @@ public class LazyColumnHolder implements ColumnHolder
       return serde.read(byteBuffer, columnConfig, smooshedFiles);
     }
     catch (IOException e) {
-      log.makeAlert(e, "Lazy cache failed for column %s", columnName)
-          .emit();
+      log.error(e, "Lazy cache failed for column %s", columnName);
       throw Throwables.propagate(e);
     }
   }

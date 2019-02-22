@@ -57,6 +57,38 @@ public class SmooshedFileMapperTest
     validateOutput(baseDir);
   }
 
+  private void validateBigColumns(File baseDir) throws IOException {
+    try (SmooshedFileMapper smooshedFileMapper = SmooshedFileMapper.load(baseDir)) {
+      for (String name : smooshedFileMapper.getInternalFilenames()) {
+        if (name.equals("19")) {
+          Assert.assertTrue(smooshedFileMapper.isBigColumn(name));
+        } else {
+          Assert.assertFalse(smooshedFileMapper.isBigColumn(name));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testBigColumnsWritten() throws Exception
+  {
+    File baseDir = folder.newFolder("base");
+
+    try (FileSmoosher smoosher = new FileSmoosher(baseDir, 37)) {
+      for (int i = 0; i < 19; ++i) {
+        File tmpFile = folder.newFile(StringUtils.format("smoosh-%s.bin", i));
+        Files.write(Ints.toByteArray(i), tmpFile);
+        smoosher.add(StringUtils.format("%d", i), tmpFile);
+      }
+      smoosher.createNewFile();
+      File tmpFile = folder.newFile("smoosh-19.bin");
+      Files.write(Ints.toByteArray(19), tmpFile);
+      smoosher.add("19", tmpFile);
+    }
+    validateOutput(baseDir);
+    validateBigColumns(baseDir);
+  }
+
   @Test
   public void testWhenFirstWriterClosedInTheMiddle() throws Exception
   {

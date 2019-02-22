@@ -75,6 +75,13 @@ public class SmooshedFileMapper implements Closeable
       Map<String, Metadata> internalFiles = Maps.newTreeMap();
       while ((line = in.readLine()) != null) {
         splits = line.split(",");
+        if (splits.length == 4) {
+          internalFiles.put(
+              splits[0],
+              new Metadata(Integer.parseInt(splits[1]), Integer.parseInt(splits[2]), Integer.parseInt(splits[3]), false)
+          );
+          continue;
+        }
 
         if (splits.length != 5) {
           throw new ISE("Wrong number of splits[%d] in line[%s]", splits.length, line);

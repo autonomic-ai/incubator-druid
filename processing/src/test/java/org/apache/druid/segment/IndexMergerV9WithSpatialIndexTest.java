@@ -51,6 +51,7 @@ import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
 import org.joda.time.Interval;
+import org.junit.AfterClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -73,7 +74,12 @@ public class IndexMergerV9WithSpatialIndexTest
 
   public static final int NUM_POINTS = 5000;
   private static Interval DATA_INTERVAL = Intervals.of("2013-01-01/2013-01-07");
-
+  private static File tmpFile;
+  private static File tmpParentFile;
+  private static File firstFile;
+  private static File secondFile;
+  private static File thirdFile;
+  private static File mergedFile;
   private static AggregatorFactory[] METRIC_AGGS = new AggregatorFactory[]{
       new CountAggregatorFactory("rows"),
       new LongSumAggregatorFactory("val", "val")
@@ -253,21 +259,31 @@ public class IndexMergerV9WithSpatialIndexTest
 
     return theIndex;
   }
-
   private static QueryableIndex makeQueryableIndex(IndexSpec indexSpec, IndexMergerV9 indexMergerV9, IndexIO indexIO)
       throws IOException
   {
     IncrementalIndex theIndex = makeIncrementalIndex();
-    File tmpFile = File.createTempFile("billy", "yay");
+    tmpFile = File.createTempFile("billy", "yay");
     tmpFile.delete();
     tmpFile.mkdirs();
 
+    indexMergerV9.persist(theIndex, tmpFile, indexSpec, null);
+    return indexIO.loadIndex(tmpFile);
+  }
+
+  @AfterClass
+  public static void deleteFiles()
+  {
     try {
-      indexMergerV9.persist(theIndex, tmpFile, indexSpec, null);
-      return indexIO.loadIndex(tmpFile);
-    }
-    finally {
       FileUtils.deleteDirectory(tmpFile);
+      FileUtils.deleteDirectory(tmpParentFile);
+      FileUtils.deleteDirectory(firstFile);
+      FileUtils.deleteDirectory(secondFile);
+      FileUtils.deleteDirectory(thirdFile);
+      FileUtils.deleteDirectory(mergedFile);
+    }
+    catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
@@ -483,14 +499,13 @@ public class IndexMergerV9WithSpatialIndexTest
         );
       }
 
+      tmpParentFile = File.createTempFile("yay", "who");
+      tmpParentFile.delete();
 
-      File tmpFile = File.createTempFile("yay", "who");
-      tmpFile.delete();
-
-      File firstFile = new File(tmpFile, "first");
-      File secondFile = new File(tmpFile, "second");
-      File thirdFile = new File(tmpFile, "third");
-      File mergedFile = new File(tmpFile, "merged");
+      firstFile = new File(tmpParentFile, "first");
+      secondFile = new File(tmpParentFile, "second");
+      thirdFile = new File(tmpParentFile, "third");
+      mergedFile = new File(tmpParentFile, "merged");
 
       firstFile.mkdirs();
       secondFile.mkdirs();
@@ -501,30 +516,21 @@ public class IndexMergerV9WithSpatialIndexTest
       indexMergerV9.persist(second, DATA_INTERVAL, secondFile, indexSpec, null);
       indexMergerV9.persist(third, DATA_INTERVAL, thirdFile, indexSpec, null);
 
-      try {
-        QueryableIndex mergedRealtime = indexIO.loadIndex(
-            indexMergerV9.mergeQueryableIndex(
-                Arrays.asList(
-                    indexIO.loadIndex(firstFile),
-                    indexIO.loadIndex(secondFile),
-                    indexIO.loadIndex(thirdFile)
-                ),
-                true,
-                METRIC_AGGS,
-                mergedFile,
-                indexSpec,
-                null
-            )
-        );
-        return mergedRealtime;
-
-      }
-      finally {
-        FileUtils.deleteDirectory(firstFile);
-        FileUtils.deleteDirectory(secondFile);
-        FileUtils.deleteDirectory(thirdFile);
-        FileUtils.deleteDirectory(mergedFile);
-      }
+      QueryableIndex mergedRealtime = indexIO.loadIndex(
+          indexMergerV9.mergeQueryableIndex(
+              Arrays.asList(
+                  indexIO.loadIndex(firstFile),
+                  indexIO.loadIndex(secondFile),
+                  indexIO.loadIndex(thirdFile)
+              ),
+              true,
+              METRIC_AGGS,
+              mergedFile,
+              indexSpec,
+              null
+          )
+      );
+      return mergedRealtime;
 
     }
     catch (IOException e) {
@@ -559,7 +565,6 @@ public class IndexMergerV9WithSpatialIndexTest
                                       )
                                   )
                                   .build();
-
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2013-01-01T00:00:00.000Z"),
@@ -579,12 +584,10 @@ public class IndexMergerV9WithSpatialIndexTest
           new TimeseriesQueryEngine(),
           QueryRunnerTestHelper.NOOP_QUERYWATCHER
       );
-
       QueryRunner runner = new FinalizeResultsQueryRunner(
           factory.createRunner(segment),
           factory.getToolchest()
       );
-
       TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), Maps.newHashMap()));
     }
     catch (Exception e) {

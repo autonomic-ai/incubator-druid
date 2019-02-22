@@ -181,6 +181,11 @@ public class IndexBuilder
               indexSpec
           )
       );
+      for (String name : merged.getColumnNames()) {
+        if (merged.getColumnHolder(name) instanceof LazyColumnHolder) {
+          merged.getColumnHolder(name).getCapabilities();
+        }
+      }
       for (QueryableIndex index : persisted) {
         index.close();
       }
