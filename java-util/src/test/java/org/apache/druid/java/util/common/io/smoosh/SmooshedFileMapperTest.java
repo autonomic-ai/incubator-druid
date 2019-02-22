@@ -57,10 +57,11 @@ public class SmooshedFileMapperTest
     validateOutput(baseDir);
   }
 
-  private void validateBigColumns(File baseDir) throws IOException {
+  private void validateBigColumns(File baseDir) throws IOException
+  {
     try (SmooshedFileMapper smooshedFileMapper = SmooshedFileMapper.load(baseDir)) {
       for (String name : smooshedFileMapper.getInternalFilenames()) {
-        if (name.equals("19")) {
+        if ("19".equals(name)) {
           Assert.assertTrue(smooshedFileMapper.isBigColumn(name));
         } else {
           Assert.assertFalse(smooshedFileMapper.isBigColumn(name));
