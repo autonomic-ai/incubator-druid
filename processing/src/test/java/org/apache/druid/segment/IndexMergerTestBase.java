@@ -342,6 +342,75 @@ public class IndexMergerTestBase
     );
   }
 
+  @Test
+  public void testPersistTwoSmallColumn() throws Exception
+  {
+    final IncrementalIndex toPersist = new IncrementalIndex.Builder()
+        .setSimpleTestingIndexSchema()
+        .setMaxRowCount(10)
+        .buildOnheap();
+    final File tmpDir = Files.createTempDir();
+    toPersist.add(
+        new MapBasedInputRow(
+            1L,
+            ImmutableList.of("smallDim1", "smallDim2"),
+            ImmutableMap.of("smallDim1", 1,
+                "smallDim2", 2)
+        )
+    );
+    indexMerger.persist(toPersist, tmpDir, indexSpec, null);
+
+    File[] files = tmpDir.listFiles();
+    Arrays.sort(files);
+    Assert.assertEquals(files.length, 4);
+    Assert.assertEquals(files[0].getName(), "00000.smoosh");
+    try (SmooshedFileMapper smooshedFileMapper = SmooshedFileMapper.load(tmpDir)) {
+      Set<String> dims = smooshedFileMapper.getInternalFilenames();
+      Assert.assertTrue(dims.contains("smallDim1"));
+      Assert.assertTrue(dims.contains("smallDim2"));
+      Assert.assertFalse(smooshedFileMapper.isBigColumn("smallDim1"));
+      Assert.assertFalse(smooshedFileMapper.isBigColumn("smallDim2"));
+    }
+  }
+
+  @Test
+  public void testPersistBigColumnBetweenTwoSmallColumn() throws Exception
+  {
+    final IncrementalIndex toPersist = new IncrementalIndex.Builder()
+        .setSimpleTestingIndexSchema()
+        .setMaxRowCount(10)
+        .buildOnheap();
+    final File tmpDir = Files.createTempDir();
+    StringBuilder bigDimContent = new StringBuilder();
+    while (bigDimContent.toString().toCharArray().length <= IndexMergerV9.getBigColumnMinSize()) {
+      bigDimContent.append("bigContent");
+    }
+    toPersist.add(
+        new MapBasedInputRow(
+            1L,
+            ImmutableList.of("smallDim1", "bigDim", "smallDim2"),
+            ImmutableMap.of("smallDim1", 1,
+                "bigDim", bigDimContent.toString(),
+                "smallDim2", 2)
+        )
+    );
+    indexMerger.persist(toPersist, tmpDir, indexSpec, null);
+
+    File[] files = tmpDir.listFiles();
+    Arrays.sort(files);
+    Assert.assertEquals(files.length, 5);
+    Assert.assertEquals(files[0].getName(), "00000.smoosh");
+    Assert.assertEquals(files[1].getName(), "00001.smoosh");
+    try (SmooshedFileMapper smooshedFileMapper = SmooshedFileMapper.load(tmpDir)) {
+      Set<String> dims = smooshedFileMapper.getInternalFilenames();
+      Assert.assertTrue(dims.contains("smallDim1"));
+      Assert.assertTrue(dims.contains("smallDim2"));
+      Assert.assertTrue(dims.contains("bigDim"));
+      Assert.assertTrue(smooshedFileMapper.isBigColumn("bigDim"));
+      Assert.assertFalse(smooshedFileMapper.isBigColumn("smallDim1"));
+      Assert.assertFalse(smooshedFileMapper.isBigColumn("smallDim2"));
+    }
+  }
 
   @Test
   public void testPersistBigColumn() throws Exception
@@ -352,14 +421,15 @@ public class IndexMergerTestBase
         .buildOnheap();
     final File tmpDir = Files.createTempDir();
     StringBuilder bigDimContent = new StringBuilder();
-    for (int i = 0; i < 30; i++) {
-      bigDimContent.append("bigDim");
+    while (bigDimContent.toString().toCharArray().length <= IndexMergerV9.getBigColumnMinSize()) {
+      bigDimContent.append("bigContent");
     }
     toPersist.add(
         new MapBasedInputRow(
             1L,
             ImmutableList.of("smallDim", "bigDim"),
-            ImmutableMap.of("smallDim", "smallDim", "bigDim", bigDimContent.toString())
+            ImmutableMap.of("smallDim", 1,
+                "bigDim", bigDimContent.toString())
         )
     );
     indexMerger.persist(toPersist, tmpDir, indexSpec, null);

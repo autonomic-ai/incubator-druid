@@ -104,7 +104,7 @@ public class LazyColumnHolder implements ColumnHolder
     return columnHolder.makeNewSettableColumnValueSelector();
   }
 
-  private void checkAndInit()
+  private synchronized void checkAndInit()
   {
     if (columnHolder == null) {
       columnHolder = deserializeColumn();
@@ -121,7 +121,7 @@ public class LazyColumnHolder implements ColumnHolder
       return serde.read(byteBuffer, columnConfig, smooshedFiles);
     }
     catch (IOException e) {
-      log.error(e, "Lazy cache failed for column %s", columnName);
+      log.error(e, "Mapping file to memory failed for column [%s], and the error message is [%s]", columnName, e.getMessage());
       throw Throwables.propagate(e);
     }
   }

@@ -20,6 +20,7 @@
 package org.apache.druid.segment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -98,6 +99,11 @@ public class IndexMergerV9 implements IndexMerger
     this.indexIO = Preconditions.checkNotNull(indexIO, "null IndexIO");
     this.defaultSegmentWriteOutMediumFactory =
         Preconditions.checkNotNull(defaultSegmentWriteOutMediumFactory, "null SegmentWriteOutMediumFactory");
+  }
+  @VisibleForTesting
+  static int getBigColumnMinSize()
+  {
+    return bigColumnMinSize;
   }
 
   private File makeIndexFiles(
@@ -213,7 +219,11 @@ public class IndexMergerV9 implements IndexMerger
           indexSpec
       );
 
-      long bigColumnMinTotalSize = (long) adapters.get(0).getNumRows() * bigColumnMinSize;
+      long bigColumnMinTotalSize = 0;
+      for (IndexableAdapter adapter : adapters) {
+        bigColumnMinTotalSize += adapter.getNumRows();
+      }
+      bigColumnMinTotalSize *= bigColumnMinSize;
       List<String> bigColumnNames = Lists.newArrayList();
       List<ColumnDescriptor> bigColumnDescriptors = Lists.newArrayList();
       List<Long> bigColumnSizes = Lists.newArrayList();

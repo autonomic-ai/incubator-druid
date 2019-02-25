@@ -181,6 +181,12 @@ public class IndexBuilder
               indexSpec
           )
       );
+
+      /*
+       * call getCapabilities() of each lazyColumnHolder to read all data from files in memory,
+       * or oringinal files will be deleted after creating here, and lazyColumnHolder can not
+       * read any files when it called in other place.
+       */
       for (String name : merged.getColumnNames()) {
         if (merged.getColumnHolder(name) instanceof LazyColumnHolder) {
           merged.getColumnHolder(name).getCapabilities();
