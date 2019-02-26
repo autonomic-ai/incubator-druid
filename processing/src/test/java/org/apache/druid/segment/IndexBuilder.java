@@ -36,6 +36,7 @@ import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -58,7 +59,7 @@ public class IndexBuilder
   private IndexSpec indexSpec = new IndexSpec();
   private int maxRows = DEFAULT_MAX_ROWS;
 
-  private final List<InputRow> rows = Lists.newArrayList();
+  private final List<InputRow> rows = new ArrayList<>();
 
   private IndexBuilder()
   {
@@ -131,7 +132,7 @@ public class IndexBuilder
     IndexMerger indexMerger = TestHelper.getTestIndexMergerV9(segmentWriteOutMediumFactory);
     Preconditions.checkNotNull(tmpDir, "tmpDir");
 
-    final List<QueryableIndex> persisted = Lists.newArrayList();
+    final List<QueryableIndex> persisted = new ArrayList<>();
     try {
       for (int i = 0; i < rows.size(); i += ROWS_PER_INDEX_FOR_MERGING) {
         persisted.add(
@@ -181,17 +182,6 @@ public class IndexBuilder
               indexSpec
           )
       );
-
-      /*
-       * call getCapabilities() of each lazyColumnHolder to read all data from files in memory,
-       * or oringinal files will be deleted after creating here, and lazyColumnHolder can not
-       * read any files when it called in other place.
-       */
-      for (String name : merged.getColumnNames()) {
-        if (merged.getColumnHolder(name) instanceof LazyColumnHolder) {
-          merged.getColumnHolder(name).getCapabilities();
-        }
-      }
       for (QueryableIndex index : persisted) {
         index.close();
       }

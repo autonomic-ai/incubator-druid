@@ -22,7 +22,6 @@ package org.apache.druid.segment;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.commons.io.FileUtils;
 import org.apache.druid.collections.spatial.search.RadiusBound;
 import org.apache.druid.collections.spatial.search.RectangularBound;
@@ -51,7 +50,6 @@ import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.writeout.SegmentWriteOutMediumFactory;
 import org.joda.time.Interval;
-import org.junit.AfterClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -62,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -74,12 +73,7 @@ public class IndexMergerV9WithSpatialIndexTest
 
   public static final int NUM_POINTS = 5000;
   private static Interval DATA_INTERVAL = Intervals.of("2013-01-01/2013-01-07");
-  private static File tmpFile;
-  private static File tmpParentFile;
-  private static File firstFile;
-  private static File secondFile;
-  private static File thirdFile;
-  private static File mergedFile;
+
   private static AggregatorFactory[] METRIC_AGGS = new AggregatorFactory[]{
       new CountAggregatorFactory("rows"),
       new LongSumAggregatorFactory("val", "val")
@@ -259,31 +253,21 @@ public class IndexMergerV9WithSpatialIndexTest
 
     return theIndex;
   }
+
   private static QueryableIndex makeQueryableIndex(IndexSpec indexSpec, IndexMergerV9 indexMergerV9, IndexIO indexIO)
       throws IOException
   {
     IncrementalIndex theIndex = makeIncrementalIndex();
-    tmpFile = File.createTempFile("billy", "yay");
+    File tmpFile = File.createTempFile("billy", "yay");
     tmpFile.delete();
     tmpFile.mkdirs();
 
-    indexMergerV9.persist(theIndex, tmpFile, indexSpec, null);
-    return indexIO.loadIndex(tmpFile);
-  }
-
-  @AfterClass
-  public static void deleteFiles()
-  {
     try {
-      FileUtils.deleteDirectory(tmpFile);
-      FileUtils.deleteDirectory(tmpParentFile);
-      FileUtils.deleteDirectory(firstFile);
-      FileUtils.deleteDirectory(secondFile);
-      FileUtils.deleteDirectory(thirdFile);
-      FileUtils.deleteDirectory(mergedFile);
+      indexMergerV9.persist(theIndex, tmpFile, indexSpec, null);
+      return indexIO.loadIndex(tmpFile);
     }
-    catch (IOException e) {
-      e.printStackTrace();
+    finally {
+      FileUtils.deleteDirectory(tmpFile);
     }
   }
 
@@ -499,13 +483,14 @@ public class IndexMergerV9WithSpatialIndexTest
         );
       }
 
-      tmpParentFile = File.createTempFile("yay", "who");
-      tmpParentFile.delete();
 
-      firstFile = new File(tmpParentFile, "first");
-      secondFile = new File(tmpParentFile, "second");
-      thirdFile = new File(tmpParentFile, "third");
-      mergedFile = new File(tmpParentFile, "merged");
+      File tmpFile = File.createTempFile("yay", "who");
+      tmpFile.delete();
+
+      File firstFile = new File(tmpFile, "first");
+      File secondFile = new File(tmpFile, "second");
+      File thirdFile = new File(tmpFile, "third");
+      File mergedFile = new File(tmpFile, "merged");
 
       firstFile.mkdirs();
       secondFile.mkdirs();
@@ -516,21 +501,30 @@ public class IndexMergerV9WithSpatialIndexTest
       indexMergerV9.persist(second, DATA_INTERVAL, secondFile, indexSpec, null);
       indexMergerV9.persist(third, DATA_INTERVAL, thirdFile, indexSpec, null);
 
-      QueryableIndex mergedRealtime = indexIO.loadIndex(
-          indexMergerV9.mergeQueryableIndex(
-              Arrays.asList(
-                  indexIO.loadIndex(firstFile),
-                  indexIO.loadIndex(secondFile),
-                  indexIO.loadIndex(thirdFile)
-              ),
-              true,
-              METRIC_AGGS,
-              mergedFile,
-              indexSpec,
-              null
-          )
-      );
-      return mergedRealtime;
+      try {
+        QueryableIndex mergedRealtime = indexIO.loadIndex(
+            indexMergerV9.mergeQueryableIndex(
+                Arrays.asList(
+                    indexIO.loadIndex(firstFile),
+                    indexIO.loadIndex(secondFile),
+                    indexIO.loadIndex(thirdFile)
+                ),
+                true,
+                METRIC_AGGS,
+                mergedFile,
+                indexSpec,
+                null
+            )
+        );
+        return mergedRealtime;
+
+      }
+      finally {
+        FileUtils.deleteDirectory(firstFile);
+        FileUtils.deleteDirectory(secondFile);
+        FileUtils.deleteDirectory(thirdFile);
+        FileUtils.deleteDirectory(mergedFile);
+      }
 
     }
     catch (IOException e) {
@@ -549,22 +543,23 @@ public class IndexMergerV9WithSpatialIndexTest
   public void testSpatialQuery()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-                                  .dataSource("test")
-                                  .granularity(Granularities.ALL)
-                                  .intervals(Collections.singletonList(Intervals.of("2013-01-01/2013-01-07")))
-                                  .filters(
-                                      new SpatialDimFilter(
-                                          "dim.geo",
-                                          new RadiusBound(new float[]{0.0f, 0.0f}, 5)
-                                      )
-                                  )
-                                  .aggregators(
-                                      Arrays.asList(
-                                          new CountAggregatorFactory("rows"),
-                                          new LongSumAggregatorFactory("val", "val")
-                                      )
-                                  )
-                                  .build();
+        .dataSource("test")
+        .granularity(Granularities.ALL)
+        .intervals(Collections.singletonList(Intervals.of("2013-01-01/2013-01-07")))
+        .filters(
+            new SpatialDimFilter(
+                "dim.geo",
+                new RadiusBound(new float[]{0.0f, 0.0f}, 5)
+            )
+        )
+        .aggregators(
+            Arrays.asList(
+                new CountAggregatorFactory("rows"),
+                new LongSumAggregatorFactory("val", "val")
+            )
+        )
+        .build();
+
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
             DateTimes.of("2013-01-01T00:00:00.000Z"),
@@ -584,11 +579,13 @@ public class IndexMergerV9WithSpatialIndexTest
           new TimeseriesQueryEngine(),
           QueryRunnerTestHelper.NOOP_QUERYWATCHER
       );
+
       QueryRunner runner = new FinalizeResultsQueryRunner(
           factory.createRunner(segment),
           factory.getToolchest()
       );
-      TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), Maps.newHashMap()));
+
+      TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), new HashMap<>()));
     }
     catch (Exception e) {
       throw Throwables.propagate(e);
@@ -600,22 +597,22 @@ public class IndexMergerV9WithSpatialIndexTest
   public void testSpatialQueryWithOtherSpatialDim()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-                                  .dataSource("test")
-                                  .granularity(Granularities.ALL)
-                                  .intervals(Collections.singletonList(Intervals.of("2013-01-01/2013-01-07")))
-                                  .filters(
-                                      new SpatialDimFilter(
-                                          "spatialIsRad",
-                                          new RadiusBound(new float[]{0.0f, 0.0f}, 5)
-                                      )
-                                  )
-                                  .aggregators(
-                                      Arrays.asList(
-                                          new CountAggregatorFactory("rows"),
-                                          new LongSumAggregatorFactory("val", "val")
-                                      )
-                                  )
-                                  .build();
+        .dataSource("test")
+        .granularity(Granularities.ALL)
+        .intervals(Collections.singletonList(Intervals.of("2013-01-01/2013-01-07")))
+        .filters(
+            new SpatialDimFilter(
+                "spatialIsRad",
+                new RadiusBound(new float[]{0.0f, 0.0f}, 5)
+            )
+        )
+        .aggregators(
+            Arrays.asList(
+                new CountAggregatorFactory("rows"),
+                new LongSumAggregatorFactory("val", "val")
+            )
+        )
+        .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(
@@ -642,7 +639,7 @@ public class IndexMergerV9WithSpatialIndexTest
           factory.getToolchest()
       );
 
-      TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), Maps.newHashMap()));
+      TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), new HashMap<>()));
     }
     catch (Exception e) {
       throw Throwables.propagate(e);
@@ -653,67 +650,67 @@ public class IndexMergerV9WithSpatialIndexTest
   public void testSpatialQueryMorePoints()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-                                  .dataSource("test")
-                                  .granularity(Granularities.DAY)
-                                  .intervals(Collections.singletonList(Intervals.of("2013-01-01/2013-01-07")))
-                                  .filters(
-                                      new SpatialDimFilter(
-                                          "dim.geo",
-                                          new RectangularBound(new float[]{0.0f, 0.0f}, new float[]{9.0f, 9.0f})
-                                      )
-                                  )
-                                  .aggregators(
-                                      Arrays.asList(
-                                          new CountAggregatorFactory("rows"),
-                                          new LongSumAggregatorFactory("val", "val")
-                                      )
-                                  )
-                                  .build();
+        .dataSource("test")
+        .granularity(Granularities.DAY)
+        .intervals(Collections.singletonList(Intervals.of("2013-01-01/2013-01-07")))
+        .filters(
+            new SpatialDimFilter(
+                "dim.geo",
+                new RectangularBound(new float[]{0.0f, 0.0f}, new float[]{9.0f, 9.0f})
+            )
+        )
+        .aggregators(
+            Arrays.asList(
+                new CountAggregatorFactory("rows"),
+                new LongSumAggregatorFactory("val", "val")
+            )
+        )
+        .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Arrays.asList(
         new Result<>(
             DateTimes.of("2013-01-01T00:00:00.000Z"),
             new TimeseriesResultValue(
                 ImmutableMap.<String, Object>builder()
-                            .put("rows", 1L)
-                            .put("val", 17L)
-                            .build()
+                    .put("rows", 1L)
+                    .put("val", 17L)
+                    .build()
             )
         ),
         new Result<>(
             DateTimes.of("2013-01-02T00:00:00.000Z"),
             new TimeseriesResultValue(
                 ImmutableMap.<String, Object>builder()
-                            .put("rows", 1L)
-                            .put("val", 29L)
-                            .build()
+                    .put("rows", 1L)
+                    .put("val", 29L)
+                    .build()
             )
         ),
         new Result<>(
             DateTimes.of("2013-01-03T00:00:00.000Z"),
             new TimeseriesResultValue(
                 ImmutableMap.<String, Object>builder()
-                            .put("rows", 1L)
-                            .put("val", 13L)
-                            .build()
+                    .put("rows", 1L)
+                    .put("val", 13L)
+                    .build()
             )
         ),
         new Result<>(
             DateTimes.of("2013-01-04T00:00:00.000Z"),
             new TimeseriesResultValue(
                 ImmutableMap.<String, Object>builder()
-                            .put("rows", 1L)
-                            .put("val", 91L)
-                            .build()
+                    .put("rows", 1L)
+                    .put("val", 91L)
+                    .build()
             )
         ),
         new Result<>(
             DateTimes.of("2013-01-05T00:00:00.000Z"),
             new TimeseriesResultValue(
                 ImmutableMap.<String, Object>builder()
-                            .put("rows", 1L)
-                            .put("val", 47L)
-                            .build()
+                    .put("rows", 1L)
+                    .put("val", 47L)
+                    .build()
             )
         )
     );
@@ -731,7 +728,7 @@ public class IndexMergerV9WithSpatialIndexTest
           factory.getToolchest()
       );
 
-      TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), Maps.newHashMap()));
+      TestHelper.assertExpectedResults(expectedResults, runner.run(QueryPlus.wrap(query), new HashMap<>()));
     }
     catch (Exception e) {
       throw Throwables.propagate(e);
