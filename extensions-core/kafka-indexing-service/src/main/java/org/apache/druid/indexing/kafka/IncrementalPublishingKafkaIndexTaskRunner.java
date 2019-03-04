@@ -470,7 +470,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
             if (record.offset() < endOffsets.get(record.partition())) {
               if (record.offset() != nextOffsets.get(record.partition())) {
                 if (ioConfig.isSkipOffsetGaps()) {
-                  log.warn(
+                  log.debug(
                       "Skipped to offset[%,d] after offset[%,d] in partition[%d].",
                       record.offset(),
                       nextOffsets.get(record.partition()),
