@@ -81,6 +81,7 @@ import org.junit.rules.TemporaryFolder;
 import javax.annotation.Nullable;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class WindowQueryTest extends CalciteTestBase
 {
@@ -408,8 +409,24 @@ public class WindowQueryTest extends CalciteTestBase
     testQuery(PLANNER_CONFIG_DEFAULT, queryContext, sql, CalciteTests.REGULAR_USER_AUTH_RESULT, 5);
   }
 
+  private void expectFailure(String sql,
+                             Map<String, Object> queryContext,
+                             Class<? extends Exception> expectedException,
+                             String partialErrorMsg)
+  {
+    try {
+      testQuery(PLANNER_CONFIG_DEFAULT, queryContext, sql, CalciteTests.REGULAR_USER_AUTH_RESULT, 0);
+    }
+    catch (Exception exp) {
+      assertTrue(expectedException.isInstance(exp));
+      assertTrue(exp.getMessage().contains(partialErrorMsg));
+      return;
+    }
+    fail();
+  }
+
   @Test
-  public void testWindowQuery_fail() throws Exception
+  public void testWindowQuery_failWithoutOverClause() throws Exception
   {
     Map<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
     queryContext.put(
@@ -417,29 +434,20 @@ public class WindowQueryTest extends CalciteTestBase
         DruidQuery.WINDOW_QUERY_TEST_CONTEXT + ":org.apache.druid.sql.calcite.window.MockWindowQueryFactory"
     );
 
-    String sql;
-    boolean failed = false;
+    String sql = "SELECT lag(dim1), dim1, lead(dim1) OVER () from foo";
+    expectFailure(sql, queryContext, ValidationException.class, "OVER clause is necessary for window functions");
+  }
 
-    // No `OVER` clause
-    try {
-      sql = "SELECT lag(dim1), dim1, lead(dim1) OVER () from foo";
-      testQuery(PLANNER_CONFIG_DEFAULT, queryContext, sql, CalciteTests.REGULAR_USER_AUTH_RESULT, 3);
-    }
-    catch (ValidationException exp) {
-      failed = true;
-      assertTrue(exp.getMessage().contains("OVER clause is necessary for window functions"));
-    }
-    assertTrue(failed);
+  @Test
+  public void testWindowQuery_failWithDifferentPartitionBy() throws Exception
+  {
+    Map<String, Object> queryContext = new HashMap<>(QUERY_CONTEXT_DEFAULT);
+    queryContext.put(
+        DruidQuery.WINDOW_QUERY_CONTEXT_NAME,
+        DruidQuery.WINDOW_QUERY_TEST_CONTEXT + ":org.apache.druid.sql.calcite.window.MockWindowQueryFactory"
+    );
 
-    // Different partition by clauses
-    try {
-      failed = false;
-      sql = "SELECT lag(dim1) OVER (partition by dim2), dim1, lead(dim1) OVER (), dim2, cnt from foo";
-      testQuery(PLANNER_CONFIG_DEFAULT, queryContext, sql, CalciteTests.REGULAR_USER_AUTH_RESULT, 4);
-    }
-    catch (RelOptPlanner.CannotPlanException exp) {
-      failed = true;
-    }
-    assertTrue(failed);
+    String sql = "SELECT lag(dim1) OVER (partition by dim2), dim1, lead(dim1) OVER (), dim2, cnt from foo";
+    expectFailure(sql, queryContext, RelOptPlanner.CannotPlanException.class, "");
   }
 }
