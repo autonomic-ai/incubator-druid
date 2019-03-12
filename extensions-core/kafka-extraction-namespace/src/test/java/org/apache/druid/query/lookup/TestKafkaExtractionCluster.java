@@ -20,21 +20,23 @@
 package org.apache.druid.query.lookup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.name.Names;
 import kafka.admin.AdminUtils;
 import kafka.javaapi.producer.Producer;
+import kafka.metrics.KafkaMetricsReporter;
+import kafka.metrics.KafkaMetricsReporter$;
 import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
-import kafka.utils.Time;
+import kafka.utils.VerifiableProperties;
 import kafka.utils.ZKStringSerializer$;
+import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkException;
 import org.apache.curator.test.TestingServer;
 import org.apache.druid.guice.GuiceInjectors;
@@ -45,6 +47,7 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.server.lookup.namespace.NamespaceExtractionModule;
+import org.apache.kafka.common.utils.Time;
 import org.apache.zookeeper.CreateMode;
 import org.junit.After;
 import org.junit.Assert;
@@ -52,6 +55,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import scala.Option;
+import scala.collection.Seq;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -61,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -101,10 +105,10 @@ public class TestKafkaExtractionCluster
     });
 
     zkClient = new ZkClient(
-        zkTestServer.getConnectString(),
-        10000,
-        10000,
-        ZKStringSerializer$.MODULE$
+            zkTestServer.getConnectString(),
+            10000,
+            10000,
+            ZKStringSerializer$.MODULE$
     );
     closer.register(new Closeable()
     {
@@ -136,44 +140,15 @@ public class TestKafkaExtractionCluster
     kafkaConfig = new KafkaConfig(serverProperties);
 
     final long time = DateTimes.of("2015-01-01").getMillis();
+    Seq<KafkaMetricsReporter> reporters =
+            KafkaMetricsReporter$.MODULE$.startReporters(new VerifiableProperties(serverProperties));
     kafkaServer = new KafkaServer(
-        kafkaConfig,
-        new Time()
-        {
-
-          @Override
-          public long milliseconds()
-          {
-            return time;
-          }
-
-          @Override
-          public long nanoseconds()
-          {
-            return TimeUnit.MILLISECONDS.toNanos(milliseconds());
-          }
-
-          @Override
-          public void sleep(long ms)
-          {
-            try {
-              Thread.sleep(ms);
-            }
-            catch (InterruptedException e) {
-              throw Throwables.propagate(e);
-            }
-          }
-        }
+            kafkaConfig, Time.SYSTEM, Option.apply("kafkaThread"), reporters
     );
     kafkaServer.startup();
-    closer.register(new Closeable()
-    {
-      @Override
-      public void close()
-      {
-        kafkaServer.shutdown();
-        kafkaServer.awaitShutdown();
-      }
+    closer.register(() -> {
+      kafkaServer.shutdown();
+      kafkaServer.awaitShutdown();
     });
 
     int sleepCount = 0;
@@ -188,10 +163,12 @@ public class TestKafkaExtractionCluster
     log.info("---------------------------Started Kafka Server---------------------------");
 
     final ZkClient zkClient = new ZkClient(
-        zkTestServer.getConnectString() + zkKafkaPath, 10000, 10000,
-        ZKStringSerializer$.MODULE$
+            zkTestServer.getConnectString() + zkKafkaPath, 10000, 10000,
+            ZKStringSerializer$.MODULE$
     );
+    ZkConnection zkConnection = new ZkConnection(zkTestServer.getConnectString());
 
+    ZkUtils zkUtils = new ZkUtils(zkClient, zkConnection, false);
     try (final AutoCloseable autoCloseable = new AutoCloseable()
     {
       @Override
@@ -210,13 +187,13 @@ public class TestKafkaExtractionCluster
     }) {
       final Properties topicProperties = new Properties();
       topicProperties.put("cleanup.policy", "compact");
-      if (!AdminUtils.topicExists(zkClient, topicName)) {
-        AdminUtils.createTopic(zkClient, topicName, 1, 1, topicProperties);
+      if (!AdminUtils.topicExists(zkUtils, topicName)) {
+        AdminUtils.createTopic(zkUtils, topicName, 1, 1, topicProperties, null);
       }
 
       log.info("---------------------------Created topic---------------------------");
 
-      Assert.assertTrue(AdminUtils.topicExists(zkClient, topicName));
+      Assert.assertTrue(AdminUtils.topicExists(zkUtils, topicName));
     }
 
     final Properties kafkaProducerProperties = makeProducerProperties();
@@ -230,33 +207,28 @@ public class TestKafkaExtractionCluster
       }
     }) {
       producer.send(
-          new KeyedMessage<>(
-              topicName,
-              StringUtils.toUtf8("abcdefg"),
-              StringUtils.toUtf8("abcdefg")
-          )
+              new KeyedMessage<>(
+                      topicName,
+                      StringUtils.toUtf8("abcdefg"),
+                      StringUtils.toUtf8("abcdefg")
+              )
       );
     }
 
     System.setProperty("druid.extensions.searchCurrentClassloader", "false");
 
     injector = Initialization.makeInjectorWithModules(
-        GuiceInjectors.makeStartupInjector(),
-        ImmutableList.of(
-            new Module()
-            {
-              @Override
-              public void configure(Binder binder)
-              {
-                binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
-                binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-                binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-              }
-            },
-            // These injections fail under IntelliJ but are required for maven
-            new NamespaceExtractionModule(),
-            new KafkaExtractionNamespaceModule()
-        )
+            GuiceInjectors.makeStartupInjector(),
+            ImmutableList.of(
+                (Module) binder -> {
+                  binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
+                  binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
+                  binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+                },
+                    // These injections fail under IntelliJ but are required for maven
+                    new NamespaceExtractionModule(),
+                    new KafkaExtractionNamespaceModule()
+            )
     );
     mapper = injector.getInstance(ObjectMapper.class);
 
@@ -267,14 +239,14 @@ public class TestKafkaExtractionCluster
     consumerProperties.put("zookeeper.sync.time.ms", "200");
 
     final KafkaLookupExtractorFactory kafkaLookupExtractorFactory = new KafkaLookupExtractorFactory(
-        null,
-        topicName,
-        consumerProperties
+            null,
+            topicName,
+            consumerProperties
     );
 
     factory = (KafkaLookupExtractorFactory) mapper.readValue(
-        mapper.writeValueAsString(kafkaLookupExtractorFactory),
-        LookupExtractorFactory.class
+            mapper.writeValueAsString(kafkaLookupExtractorFactory),
+            LookupExtractorFactory.class
     );
     Assert.assertEquals(kafkaLookupExtractorFactory.getKafkaTopic(), factory.getKafkaTopic());
     Assert.assertEquals(kafkaLookupExtractorFactory.getKafkaProperties(), factory.getKafkaProperties());
@@ -301,8 +273,8 @@ public class TestKafkaExtractionCluster
     final Properties kafkaProducerProperties = new Properties();
     kafkaProducerProperties.putAll(kafkaProperties);
     kafkaProducerProperties.put(
-        "metadata.broker.list",
-        StringUtils.format("127.0.0.1:%d", kafkaServer.socketServer().port())
+            "metadata.broker.list",
+            StringUtils.format("127.0.0.1:%d", kafkaServer.socketServer().config().port())
     );
     kafkaProperties.put("request.required.acks", "1");
     return kafkaProducerProperties;
@@ -369,10 +341,10 @@ public class TestKafkaExtractionCluster
   }
 
   private void assertUpdated(
-      String expected,
-      String key
+          String expected,
+          String key
   )
-      throws InterruptedException
+          throws InterruptedException
   {
     final LookupExtractor extractor = factory.get();
     if (expected == null) {
@@ -389,10 +361,10 @@ public class TestKafkaExtractionCluster
   }
 
   private void assertReverseUpdated(
-      List<String> expected,
-      String key
+          List<String> expected,
+          String key
   )
-      throws InterruptedException
+          throws InterruptedException
   {
     final LookupExtractor extractor = factory.get();
 
