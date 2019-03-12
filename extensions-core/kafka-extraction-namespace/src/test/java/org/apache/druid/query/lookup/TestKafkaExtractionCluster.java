@@ -41,7 +41,6 @@ import org.I0Itec.zkclient.exception.ZkException;
 import org.apache.curator.test.TestingServer;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.initialization.Initialization;
-import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
@@ -139,7 +138,6 @@ public class TestKafkaExtractionCluster
 
     kafkaConfig = new KafkaConfig(serverProperties);
 
-    final long time = DateTimes.of("2015-01-01").getMillis();
     Seq<KafkaMetricsReporter> reporters =
             KafkaMetricsReporter$.MODULE$.startReporters(new VerifiableProperties(serverProperties));
     kafkaServer = new KafkaServer(
