@@ -21,6 +21,7 @@ package org.apache.druid.query.lookup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.name.Names;
@@ -33,11 +34,12 @@ import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
 import kafka.utils.VerifiableProperties;
-import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkException;
+import org.apache.kafka.common.utils.Time;
+import kafka.utils.ZKStringSerializer$;
 import org.apache.curator.test.TestingServer;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.initialization.Initialization;
@@ -46,7 +48,6 @@ import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.server.lookup.namespace.NamespaceExtractionModule;
-import org.apache.kafka.common.utils.Time;
 import org.apache.zookeeper.CreateMode;
 import org.junit.After;
 import org.junit.Assert;
@@ -144,9 +145,14 @@ public class TestKafkaExtractionCluster
             kafkaConfig, Time.SYSTEM, Option.apply("kafkaThread"), reporters
     );
     kafkaServer.startup();
-    closer.register(() -> {
-      kafkaServer.shutdown();
-      kafkaServer.awaitShutdown();
+    closer.register(new Closeable()
+    {
+      @Override
+      public void close()
+      {
+        kafkaServer.shutdown();
+        kafkaServer.awaitShutdown();
+      }
     });
 
     int sleepCount = 0;
@@ -164,9 +170,10 @@ public class TestKafkaExtractionCluster
             zkTestServer.getConnectString() + zkKafkaPath, 10000, 10000,
             ZKStringSerializer$.MODULE$
     );
-    ZkConnection zkConnection = new ZkConnection(zkTestServer.getConnectString());
 
+    ZkConnection zkConnection = new ZkConnection(zkTestServer.getConnectString());
     ZkUtils zkUtils = new ZkUtils(zkClient, zkConnection, false);
+
     try (final AutoCloseable autoCloseable = new AutoCloseable()
     {
       @Override
@@ -218,11 +225,16 @@ public class TestKafkaExtractionCluster
     injector = Initialization.makeInjectorWithModules(
             GuiceInjectors.makeStartupInjector(),
             ImmutableList.of(
-                (Module) binder -> {
-                  binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
-                  binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
-                  binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
-                },
+                    new Module()
+                    {
+                      @Override
+                      public void configure(Binder binder)
+                      {
+                        binder.bindConstant().annotatedWith(Names.named("serviceName")).to("test");
+                        binder.bindConstant().annotatedWith(Names.named("servicePort")).to(0);
+                        binder.bindConstant().annotatedWith(Names.named("tlsServicePort")).to(-1);
+                      }
+                    },
                     // These injections fail under IntelliJ but are required for maven
                     new NamespaceExtractionModule(),
                     new KafkaExtractionNamespaceModule()
