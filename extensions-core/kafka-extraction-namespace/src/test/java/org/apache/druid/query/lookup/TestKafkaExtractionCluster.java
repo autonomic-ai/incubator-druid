@@ -20,7 +20,6 @@
 package org.apache.druid.query.lookup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -28,18 +27,22 @@ import com.google.inject.Module;
 import com.google.inject.name.Names;
 import kafka.admin.AdminUtils;
 import kafka.javaapi.producer.Producer;
+import kafka.metrics.KafkaMetricsReporter;
+import kafka.metrics.KafkaMetricsReporter$;
 import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
-import kafka.utils.Time;
-import kafka.utils.ZKStringSerializer$;
+import kafka.utils.VerifiableProperties;
+import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkException;
+import org.apache.kafka.common.utils.Time;
+import kafka.utils.ZKStringSerializer$;
 import org.apache.curator.test.TestingServer;
 import org.apache.druid.guice.GuiceInjectors;
 import org.apache.druid.initialization.Initialization;
-import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.io.Closer;
@@ -52,6 +55,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import scala.Option;
+import scala.collection.Seq;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -61,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -135,35 +139,10 @@ public class TestKafkaExtractionCluster
 
     kafkaConfig = new KafkaConfig(serverProperties);
 
-    final long time = DateTimes.of("2015-01-01").getMillis();
+    Seq<KafkaMetricsReporter> reporters =
+        KafkaMetricsReporter$.MODULE$.startReporters(new VerifiableProperties(serverProperties));
     kafkaServer = new KafkaServer(
-        kafkaConfig,
-        new Time()
-        {
-
-          @Override
-          public long milliseconds()
-          {
-            return time;
-          }
-
-          @Override
-          public long nanoseconds()
-          {
-            return TimeUnit.MILLISECONDS.toNanos(milliseconds());
-          }
-
-          @Override
-          public void sleep(long ms)
-          {
-            try {
-              Thread.sleep(ms);
-            }
-            catch (InterruptedException e) {
-              throw Throwables.propagate(e);
-            }
-          }
-        }
+        kafkaConfig, Time.SYSTEM, Option.apply("kafkaThread"), reporters
     );
     kafkaServer.startup();
     closer.register(new Closeable()
@@ -192,6 +171,9 @@ public class TestKafkaExtractionCluster
         ZKStringSerializer$.MODULE$
     );
 
+    ZkConnection zkConnection = new ZkConnection(zkTestServer.getConnectString());
+    ZkUtils zkUtils = new ZkUtils(zkClient, zkConnection, false);
+
     try (final AutoCloseable autoCloseable = new AutoCloseable()
     {
       @Override
@@ -210,13 +192,13 @@ public class TestKafkaExtractionCluster
     }) {
       final Properties topicProperties = new Properties();
       topicProperties.put("cleanup.policy", "compact");
-      if (!AdminUtils.topicExists(zkClient, topicName)) {
-        AdminUtils.createTopic(zkClient, topicName, 1, 1, topicProperties);
+      if (!AdminUtils.topicExists(zkUtils, topicName)) {
+        AdminUtils.createTopic(zkUtils, topicName, 1, 1, topicProperties, null);
       }
 
       log.info("---------------------------Created topic---------------------------");
 
-      Assert.assertTrue(AdminUtils.topicExists(zkClient, topicName));
+      Assert.assertTrue(AdminUtils.topicExists(zkUtils, topicName));
     }
 
     final Properties kafkaProducerProperties = makeProducerProperties();
@@ -302,7 +284,7 @@ public class TestKafkaExtractionCluster
     kafkaProducerProperties.putAll(kafkaProperties);
     kafkaProducerProperties.put(
         "metadata.broker.list",
-        StringUtils.format("127.0.0.1:%d", kafkaServer.socketServer().port())
+        StringUtils.format("127.0.0.1:%d", kafkaServer.socketServer().config().port())
     );
     kafkaProperties.put("request.required.acks", "1");
     return kafkaProducerProperties;
