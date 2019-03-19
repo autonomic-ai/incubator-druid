@@ -622,7 +622,13 @@ public class AppenderatorImpl implements Appenderator
 
             final DataSegment dataSegment = mergeAndPush(entry.getKey(), entry.getValue(), useUniquePath);
             if (dataSegment != null) {
+              Sink currentSink = entry.getValue();
               dataSegments.add(dataSegment);
+
+              long numberOfSignals =
+                  currentSink.getNumRows() * (dataSegment.getDimensions().size() + dataSegment.getMetrics().size());
+              log.info("Pushed %s signals into deep storage", numberOfSignals);
+              metrics.incrementSignalsPublishedCount(numberOfSignals);;
             } else {
               log.warn("mergeAndPush[%s] returned null, skipping.", entry.getKey());
             }
@@ -749,7 +755,6 @@ public class AppenderatorImpl implements Appenderator
       objectMapper.writeValue(descriptorFile, segment);
 
       log.info("Pushed merged index for segment[%s], descriptor is: %s", identifier, segment);
-
       return segment;
     }
     catch (Exception e) {
