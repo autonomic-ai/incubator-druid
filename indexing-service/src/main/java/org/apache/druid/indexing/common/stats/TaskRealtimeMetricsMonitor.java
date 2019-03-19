@@ -115,6 +115,8 @@ public class TaskRealtimeMetricsMonitor extends AbstractMonitor
     emitter.emit(builder.build("ingest/sink/count", metrics.sinkCount()));
     emitter.emit(builder.build("ingest/events/messageGap", metrics.messageGap()));
 
+    emitter.emit(builder.build("ingest/auSignalsPublished/count", metrics.auSignalsPublishedCount() - previousFireDepartmentMetrics.auSignalsPublishedCount()));
+
     previousRowIngestionMetersTotals = rowIngestionMetersTotals;
     previousFireDepartmentMetrics = metrics;
     return true;
