@@ -117,6 +117,9 @@ public class AppenderatorTest
       }
       Assert.assertTrue(thrown);
 
+      // getPublishedSignalsCount after committing and before publishing
+      Assert.assertEquals(0, tester.getMetrics().signalsPublishedCount());
+
       // push all
       final SegmentsAndMetadata segmentsAndMetadata = appenderator.push(
           appenderator.getSegments(),
@@ -141,6 +144,9 @@ public class AppenderatorTest
           )
       );
       Assert.assertEquals(sorted(tester.getPushedSegments()), sorted(segmentsAndMetadata.getSegments()));
+
+      // getPublishedSignalsCount after publishing
+      Assert.assertEquals(6, tester.getMetrics().signalsPublishedCount());
 
       // clear
       appenderator.clear();
