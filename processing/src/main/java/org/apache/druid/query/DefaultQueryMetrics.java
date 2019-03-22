@@ -160,12 +160,6 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
-  public void clientId(String clientId)
-  {
-    setDimension("clientId", clientId);
-  }
-
-  @Override
   public void segment(String segmentIdentifier)
   {
     setDimension("segment", segmentIdentifier);
@@ -214,9 +208,9 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
-  public QueryMetrics<QueryType> reportQueryCost(long cost)
+  public QueryMetrics<QueryType> reportQueryNumOfAuSignals(long numOfAuSignals)
   {
-    return reportMetric("query/cost", cost);
+    return reportMetric("query/numOfAuSignals", numOfAuSignals);
   }
 
   @Override

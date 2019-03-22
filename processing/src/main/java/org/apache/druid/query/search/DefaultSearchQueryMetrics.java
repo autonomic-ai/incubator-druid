@@ -125,12 +125,6 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
-  public void clientId(String clientId)
-  {
-    delegateQueryMetrics.clientId(clientId);
-  }
-
-  @Override
   public void segment(String segmentIdentifier)
   {
     delegateQueryMetrics.segment(segmentIdentifier);
@@ -179,9 +173,9 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
-  public QueryMetrics reportQueryCost(long cost)
+  public QueryMetrics reportQueryNumOfAuSignals(long cost)
   {
-    return delegateQueryMetrics.reportQueryCost(cost);
+    return delegateQueryMetrics.reportQueryNumOfAuSignals(cost);
   }
 
   @Override

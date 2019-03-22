@@ -124,12 +124,6 @@ public class DefaultSelectQueryMetrics implements SelectQueryMetrics
   }
 
   @Override
-  public void clientId(String clientId)
-  {
-    delegateQueryMetrics.clientId(clientId);
-  }
-
-  @Override
   public void segment(String segmentIdentifier)
   {
     delegateQueryMetrics.segment(segmentIdentifier);
@@ -178,9 +172,9 @@ public class DefaultSelectQueryMetrics implements SelectQueryMetrics
   }
 
   @Override
-  public QueryMetrics reportQueryCost(long cost)
+  public QueryMetrics reportQueryNumOfAuSignals(long cost)
   {
-    return delegateQueryMetrics.reportQueryCost(cost);
+    return delegateQueryMetrics.reportQueryNumOfAuSignals(cost);
   }
 
   @Override

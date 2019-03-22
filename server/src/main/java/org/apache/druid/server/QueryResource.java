@@ -176,7 +176,6 @@ public class QueryResource implements QueryCountStatsProvider
     try {
       queryLifecycle.initialize(readQuery(req, in, context));
       query = queryLifecycle.getQuery();
-      final String clientId = query.getContext().getOrDefault("clientId", "N/A").toString();
       final String queryId = query.getId();
 
       Thread.currentThread()
@@ -233,9 +232,7 @@ public class QueryResource implements QueryCountStatsProvider
                       Thread.currentThread().setName(currThreadName);
 
                       queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(),
-                                                        (Long) responseContext.getOrDefault("cost", -1L),
-                                                        clientId
-
+                                                        (Long) responseContext.getOrDefault("cost", -1L)
                       );
 
                       if (e == null) {
@@ -282,7 +279,7 @@ public class QueryResource implements QueryCountStatsProvider
     }
     catch (QueryInterruptedException e) {
       interruptedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1, -1, "N/A");
+      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1, -1);
       return context.gotError(e);
     }
     catch (ForbiddenException e) {
@@ -292,7 +289,7 @@ public class QueryResource implements QueryCountStatsProvider
     }
     catch (Exception e) {
       failedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1, -1, "N/A");
+      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1, -1);
 
       log.makeAlert(e, "Exception handling request")
          .addData("exception", e.toString())
