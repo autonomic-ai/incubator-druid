@@ -216,7 +216,7 @@ public interface QueryMetrics<QueryType extends Query<?>>
   void status(String status);
 
   void success(boolean success);
-  
+
   void segment(String segmentIdentifier);
 
   void chunkInterval(Interval interval);
@@ -249,7 +249,7 @@ public interface QueryMetrics<QueryType extends Query<?>>
   QueryMetrics<QueryType> reportQueryBytes(long byteCount);
 
   /**
-   * Registers "query bytes" metric.
+   * Registers "query numOfAuSignals" metric.
    */
   QueryMetrics<QueryType> reportQueryNumOfAuSignals(long numOfAuSignals);
 
