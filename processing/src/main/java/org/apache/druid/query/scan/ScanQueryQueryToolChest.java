@@ -34,6 +34,7 @@ import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.aggregation.MetricManipulationFn;
 
+import java.util.List;
 import java.util.Map;
 
 public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, ScanQuery>
@@ -70,27 +71,50 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
         final ScanQuery scanQuery = ((ScanQuery) queryPlus.getQuery()).withNonNullLegacy(scanQueryConfig);
         final QueryPlus<ScanResultValue> queryPlusWithNonNullLegacy = queryPlus.withQuery(scanQuery);
 
-        if (scanQuery.getLimit() == Long.MAX_VALUE) {
-          return runner.run(queryPlusWithNonNullLegacy, responseContext);
-        }
-        return new BaseSequence<>(
-            new BaseSequence.IteratorMaker<ScanResultValue, ScanQueryLimitRowIterator>()
-            {
-              @Override
-              public ScanQueryLimitRowIterator make()
-              {
-                return new ScanQueryLimitRowIterator(runner, queryPlusWithNonNullLegacy, responseContext);
-              }
+        Sequence sequence;
 
-              @Override
-              public void cleanup(ScanQueryLimitRowIterator iterFromMake)
+        if (scanQuery.getLimit() == Long.MAX_VALUE) {
+          sequence = runner.run(queryPlusWithNonNullLegacy, responseContext);
+        } else {
+          sequence = new BaseSequence<>(
+              new BaseSequence.IteratorMaker<ScanResultValue, ScanQueryLimitRowIterator>()
               {
-                CloseQuietly.close(iterFromMake);
+                @Override
+                public ScanQueryLimitRowIterator make()
+                {
+                  return new ScanQueryLimitRowIterator(runner, queryPlusWithNonNullLegacy, responseContext);
+                }
+
+                @Override
+                public void cleanup(ScanQueryLimitRowIterator iterFromMake)
+                {
+                  CloseQuietly.close(iterFromMake);
+                }
               }
-            }
-        );
+          );
+        }
+        generateCost(responseContext, sequence);
+        return sequence;
       }
     };
+  }
+
+  private void generateCost(final Map<String, Object> responseContext, Sequence sequence) {
+    long cost;
+    try {
+      long numOfRows = 0L;
+
+      List scanResultValues = sequence.toList();
+      for (Object value : scanResultValues) {
+        numOfRows += ((List) ((ScanResultValue) value).getEvents()).size();
+      }
+      int numOfColumns = ((ScanResultValue) scanResultValues.get(0)).getColumns().size();
+      cost = numOfColumns * numOfRows;
+    } catch (Exception e) {
+      cost = 0;
+    }
+
+    responseContext.put("cost", cost);
   }
 
   @Override

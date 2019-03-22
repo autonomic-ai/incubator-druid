@@ -217,6 +217,8 @@ public interface QueryMetrics<QueryType extends Query<?>>
 
   void success(boolean success);
 
+  void clientId(String clientId);
+
   void segment(String segmentIdentifier);
 
   void chunkInterval(Interval interval);
@@ -247,6 +249,11 @@ public interface QueryMetrics<QueryType extends Query<?>>
    * Registers "query bytes" metric.
    */
   QueryMetrics<QueryType> reportQueryBytes(long byteCount);
+
+  /**
+   * Registers "query bytes" metric.
+   */
+  QueryMetrics<QueryType> reportQueryCost(long cost);
 
   /**
    * Registers "wait time" metric.

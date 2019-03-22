@@ -61,7 +61,7 @@ import java.util.concurrent.TimeUnit;
  * <li>Initialization ({@link #initialize(Query)})</li>
  * <li>Authorization ({@link #authorize(HttpServletRequest)}</li>
  * <li>Execution ({@link #execute()}</li>
- * <li>Logging ({@link #emitLogsAndMetrics(Throwable, String, long)}</li>
+ * <li>Logging ({@link #emitLogsAndMetrics(Throwable, String, long, long, String)}</li>
  * </ol>
  *
  * This object is not thread-safe.
@@ -126,6 +126,7 @@ public class QueryLifecycle
     initialize(query);
 
     final Sequence<T> results;
+    final long cost;
 
     try {
       final Access access = authorize(authenticationResult);
@@ -135,9 +136,10 @@ public class QueryLifecycle
 
       final QueryLifecycle.QueryResponse queryResponse = execute();
       results = queryResponse.getResults();
+      cost = (long) queryResponse.getResponseContext().getOrDefault("cost", -1L);
     }
     catch (Throwable e) {
-      emitLogsAndMetrics(e, remoteAddress, -1);
+      emitLogsAndMetrics(e, remoteAddress, -1, -1, query.getContext().getOrDefault("clientId", "N/A").toString());
       throw e;
     }
 
@@ -148,7 +150,7 @@ public class QueryLifecycle
           @Override
           public void after(final boolean isDone, final Throwable thrown)
           {
-            emitLogsAndMetrics(thrown, remoteAddress, -1);
+            emitLogsAndMetrics(thrown, remoteAddress, -1, cost, query.getContext().getOrDefault("clientId", "N/A").toString());
           }
         }
     );
@@ -240,7 +242,7 @@ public class QueryLifecycle
   /**
    * Execute the query. Can only be called if the query has been authorized. Note that query logs and metrics will
    * not be emitted automatically when the Sequence is fully iterated. It is the caller's responsibility to call
-   * {@link #emitLogsAndMetrics(Throwable, String, long)} to emit logs and metrics.
+   * {@link #emitLogsAndMetrics(Throwable, String, long, long, String)} to emit logs and metrics.
    *
    * @return result sequence and response context
    */
@@ -268,7 +270,9 @@ public class QueryLifecycle
   public void emitLogsAndMetrics(
       @Nullable final Throwable e,
       @Nullable final String remoteAddress,
-      final long bytesWritten
+      final long bytesWritten,
+      final long cost,
+      String clientId
   )
   {
     if (baseQuery == null) {
@@ -294,10 +298,15 @@ public class QueryLifecycle
           StringUtils.nullToEmptyNonDruidDataString(remoteAddress)
       );
       queryMetrics.success(success);
+      queryMetrics.clientId(clientId);
       queryMetrics.reportQueryTime(queryTimeNs);
 
       if (bytesWritten >= 0) {
         queryMetrics.reportQueryBytes(bytesWritten);
+      }
+
+      if (cost > 0) {
+        queryMetrics.reportQueryCost(cost);
       }
 
       if (authenticationResult != null) {
