@@ -99,7 +99,8 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
     };
   }
 
-  private void generateCost(final Map<String, Object> responseContext, Sequence sequence) {
+  private void generateCost(final Map<String, Object> responseContext, Sequence sequence)
+  {
     long cost;
     try {
       long numOfRows = 0L;
@@ -110,7 +111,8 @@ public class ScanQueryQueryToolChest extends QueryToolChest<ScanResultValue, Sca
       }
       int numOfColumns = ((ScanResultValue) scanResultValues.get(0)).getColumns().size();
       cost = numOfColumns * numOfRows;
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       cost = 0;
     }
 
