@@ -52,6 +52,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Class that helps a Druid server (broker, historical, etc) manage the lifecycle of a query that it is handling. It
@@ -61,7 +62,7 @@ import java.util.concurrent.TimeUnit;
  * <li>Initialization ({@link #initialize(Query)})</li>
  * <li>Authorization ({@link #authorize(HttpServletRequest)}</li>
  * <li>Execution ({@link #execute()}</li>
- * <li>Logging ({@link #emitLogsAndMetrics(Throwable, String, long)}</li>
+ * <li>Logging ({@link #emitLogsAndMetrics(Throwable, String, long, long)}</li>
  * </ol>
  *
  * This object is not thread-safe.
@@ -120,7 +121,8 @@ public class QueryLifecycle
   public <T> Sequence<T> runSimple(
       final Query<T> query,
       final AuthenticationResult authenticationResult,
-      @Nullable final String remoteAddress
+      @Nullable final String remoteAddress,
+      @Nullable AtomicLong numAuSignals
   )
   {
     initialize(query);
@@ -137,7 +139,7 @@ public class QueryLifecycle
       results = queryResponse.getResults();
     }
     catch (Throwable e) {
-      emitLogsAndMetrics(e, remoteAddress, -1);
+      emitLogsAndMetrics(e, remoteAddress, -1, -1);
       throw e;
     }
 
@@ -148,7 +150,11 @@ public class QueryLifecycle
           @Override
           public void after(final boolean isDone, final Throwable thrown)
           {
-            emitLogsAndMetrics(thrown, remoteAddress, -1);
+            long numAuSignalsToEmit = -1;
+            if (numAuSignals != null) {
+              numAuSignalsToEmit = numAuSignals.get();
+            }
+            emitLogsAndMetrics(thrown, remoteAddress, -1, numAuSignalsToEmit);
           }
         }
     );
@@ -240,7 +246,7 @@ public class QueryLifecycle
   /**
    * Execute the query. Can only be called if the query has been authorized. Note that query logs and metrics will
    * not be emitted automatically when the Sequence is fully iterated. It is the caller's responsibility to call
-   * {@link #emitLogsAndMetrics(Throwable, String, long)} to emit logs and metrics.
+   * {@link #emitLogsAndMetrics(Throwable, String, long, long)} to emit logs and metrics.
    *
    * @return result sequence and response context
    */
@@ -268,7 +274,8 @@ public class QueryLifecycle
   public void emitLogsAndMetrics(
       @Nullable final Throwable e,
       @Nullable final String remoteAddress,
-      final long bytesWritten
+      final long bytesWritten,
+      long numAuSignals
   )
   {
     if (baseQuery == null) {
@@ -298,6 +305,10 @@ public class QueryLifecycle
 
       if (bytesWritten >= 0) {
         queryMetrics.reportQueryBytes(bytesWritten);
+      }
+
+      if (numAuSignals > 0) {
+        queryMetrics.reportQueryNumAuSignals(numAuSignals);
       }
 
       if (authenticationResult != null) {

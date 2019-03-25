@@ -249,6 +249,11 @@ public interface QueryMetrics<QueryType extends Query<?>>
   QueryMetrics<QueryType> reportQueryBytes(long byteCount);
 
   /**
+   * Registers "query numOfAuSignals" metric.
+   */
+  QueryMetrics<QueryType> reportQueryNumAuSignals(long numAuSignals);
+
+  /**
    * Registers "wait time" metric.
    */
   QueryMetrics<QueryType> reportWaitTime(long timeNs);
