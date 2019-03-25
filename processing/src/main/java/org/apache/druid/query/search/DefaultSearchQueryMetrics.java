@@ -173,9 +173,9 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
-  public QueryMetrics reportQueryNumOfAuSignals(long cost)
+  public QueryMetrics reportQueryNumAuSignals(long numAuSignals)
   {
-    return delegateQueryMetrics.reportQueryNumOfAuSignals(cost);
+    return delegateQueryMetrics.reportQueryNumAuSignals(numAuSignals);
   }
 
   @Override

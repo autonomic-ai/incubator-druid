@@ -208,9 +208,9 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
-  public QueryMetrics<QueryType> reportQueryNumOfAuSignals(long numOfAuSignals)
+  public QueryMetrics<QueryType> reportQueryNumAuSignals(long numAuSignals)
   {
-    return reportMetric("query/numOfAuSignals", numOfAuSignals);
+    return reportMetric("query/numAuSignals", numAuSignals);
   }
 
   @Override

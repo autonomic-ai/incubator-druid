@@ -122,7 +122,7 @@ public class QueryLifecycle
       final Query<T> query,
       final AuthenticationResult authenticationResult,
       @Nullable final String remoteAddress,
-      @Nullable AtomicLong numOfAuSignals
+      @Nullable AtomicLong numAuSignals
   )
   {
     initialize(query);
@@ -150,11 +150,11 @@ public class QueryLifecycle
           @Override
           public void after(final boolean isDone, final Throwable thrown)
           {
-            long cost = -1;
-            if (numOfAuSignals != null) {
-              cost = numOfAuSignals.get();
+            long numAuSignalsToEmit = -1;
+            if (numAuSignals != null) {
+              numAuSignalsToEmit = numAuSignals.get();
             }
-            emitLogsAndMetrics(thrown, remoteAddress, -1, cost);
+            emitLogsAndMetrics(thrown, remoteAddress, -1, numAuSignalsToEmit);
           }
         }
     );
@@ -275,7 +275,7 @@ public class QueryLifecycle
       @Nullable final Throwable e,
       @Nullable final String remoteAddress,
       final long bytesWritten,
-      long numOfAuSignals
+      long numAuSignals
   )
   {
     if (baseQuery == null) {
@@ -307,8 +307,8 @@ public class QueryLifecycle
         queryMetrics.reportQueryBytes(bytesWritten);
       }
 
-      if (numOfAuSignals > 0) {
-        queryMetrics.reportQueryNumOfAuSignals(numOfAuSignals);
+      if (numAuSignals > 0) {
+        queryMetrics.reportQueryNumAuSignals(numAuSignals);
       }
 
       if (authenticationResult != null) {

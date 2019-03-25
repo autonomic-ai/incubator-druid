@@ -251,7 +251,7 @@ public interface QueryMetrics<QueryType extends Query<?>>
   /**
    * Registers "query numOfAuSignals" metric.
    */
-  QueryMetrics<QueryType> reportQueryNumOfAuSignals(long numOfAuSignals);
+  QueryMetrics<QueryType> reportQueryNumAuSignals(long numAuSignals);
 
   /**
    * Registers "wait time" metric.
