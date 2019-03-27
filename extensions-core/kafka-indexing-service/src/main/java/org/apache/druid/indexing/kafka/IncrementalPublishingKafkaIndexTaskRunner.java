@@ -134,8 +134,8 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
   private static final String METADATA_PUBLISH_PARTITIONS = "publishPartitions";
 
   public static final String ASSET_AUI = "asset_aui";
+  public static final String VIN = "vin";
   public static final String ENVELOPE = "envelope";
-  public static final String EVENT_LABEL = "event_label";
 
   private final Map<Integer, Long> endOffsets;
   private final Map<Integer, Long> nextOffsets = new ConcurrentHashMap<>();
@@ -563,10 +563,10 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                         if (rowEvent.containsKey(ASSET_AUI)) {
                           auSignalsProcessed--;
                         }
-                        if (rowEvent.containsKey(ENVELOPE)) {
+                        if (rowEvent.containsKey(VIN)) {
                           auSignalsProcessed--;
                         }
-                        if (rowEvent.containsKey(EVENT_LABEL)) {
+                        if (rowEvent.containsKey(ENVELOPE)) {
                           auSignalsProcessed--;
                         }
 
