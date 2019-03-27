@@ -623,12 +623,6 @@ public class AppenderatorImpl implements Appenderator
             final DataSegment dataSegment = mergeAndPush(entry.getKey(), entry.getValue(), useUniquePath);
             if (dataSegment != null) {
               dataSegments.add(dataSegment);
-
-              Sink currentSink = entry.getValue();
-              long numberOfSignals =
-                  currentSink.getNumRows() * (dataSegment.getDimensions().size() + dataSegment.getMetrics().size());
-              log.info("Pushed %s signals into deep storage", numberOfSignals);
-              metrics.incrementSignalsPublishedCount(numberOfSignals);
             } else {
               log.warn("mergeAndPush[%s] returned null, skipping.", entry.getKey());
             }

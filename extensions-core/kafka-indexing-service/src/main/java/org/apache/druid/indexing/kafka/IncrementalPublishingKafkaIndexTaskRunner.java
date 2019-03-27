@@ -38,6 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.druid.data.input.Committer;
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.impl.InputRowParser;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
@@ -68,6 +69,7 @@ import org.apache.druid.segment.realtime.FireDepartment;
 import org.apache.druid.segment.realtime.FireDepartmentMetrics;
 import org.apache.druid.segment.realtime.appenderator.Appenderator;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorDriverAddResult;
+import org.apache.druid.segment.realtime.appenderator.SegmentIdentifier;
 import org.apache.druid.segment.realtime.appenderator.SegmentsAndMetadata;
 import org.apache.druid.segment.realtime.appenderator.StreamAppenderatorDriver;
 import org.apache.druid.segment.realtime.appenderator.TransactionalSegmentPublisher;
@@ -130,6 +132,10 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
   private static final EmittingLogger log = new EmittingLogger(IncrementalPublishingKafkaIndexTaskRunner.class);
   private static final String METADATA_NEXT_PARTITIONS = "nextPartitions";
   private static final String METADATA_PUBLISH_PARTITIONS = "publishPartitions";
+
+  public static final String ASSET_AUI = "asset_aui";
+  public static final String ENVELOPE = "envelope";
+  public static final String EVENT_LABEL = "event_label";
 
   private final Map<Integer, Long> endOffsets;
   private final Map<Integer, Long> nextOffsets = new ConcurrentHashMap<>();
@@ -326,6 +332,8 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
       driver = task.newDriver(appenderator, toolbox, fireDepartmentMetrics);
 
       final String topic = ioConfig.getStartPartitions().getTopic();
+
+      Map<SegmentIdentifier, Integer> auSignalsToBePublished = new HashMap<SegmentIdentifier, Integer>();
 
       // Start up, set up initial offsets.
       final Object restoredMetadata = driver.startJob();
@@ -545,6 +553,36 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                       handleParseException(addResult.getParseException(), record);
                     } else {
                       rowIngestionMeters.incrementProcessed();
+
+                      SegmentIdentifier segmentIdentifier = addResult.getSegmentIdentifier();
+                      if (row instanceof MapBasedInputRow) {
+                        Map<String, Object> rowEvent = ((MapBasedInputRow) row).getEvent();
+                        int auSignalsProcessed = rowEvent.size();
+
+                        // The following keys do not count as signals at the time of this commit.
+                        if (rowEvent.containsKey(ASSET_AUI)) {
+                          auSignalsProcessed--;
+                        }
+                        if (rowEvent.containsKey(ENVELOPE)) {
+                          auSignalsProcessed--;
+                        }
+                        if (rowEvent.containsKey(EVENT_LABEL)) {
+                          auSignalsProcessed--;
+                        }
+
+                        log.info("The number of auSignals processed for segment %s is "
+                                 + auSignalsProcessed, segmentIdentifier);
+                        if (auSignalsToBePublished.containsKey(segmentIdentifier)) {
+                          int previousAuSignalsProcessed = auSignalsToBePublished.get(segmentIdentifier);
+                          auSignalsToBePublished.replace(segmentIdentifier, auSignalsProcessed
+                                                                                    + previousAuSignalsProcessed);
+                        } else {
+                          auSignalsToBePublished.put(segmentIdentifier, auSignalsProcessed);
+                        }
+                      } else {
+                        log.warn("The number of auSignals processed for segment %s "
+                                 + "will not be recorded for usage.", segmentIdentifier);
+                      }
                     }
                   } else {
                     rowIngestionMeters.incrementThrownAway();
@@ -690,6 +728,19 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
             ),
             Preconditions.checkNotNull(handedOff.getCommitMetadata(), "commitMetadata")
         );
+
+        List<SegmentIdentifier> segmentIdentifiers =
+            handedOff.getSegments().stream().map(SegmentIdentifier::fromDataSegment).collect(Collectors.toList());
+        for (SegmentIdentifier segmentIdentifer : segmentIdentifiers) {
+          if (auSignalsToBePublished.containsKey(segmentIdentifer)) {
+            int auSignalsPublished = auSignalsToBePublished.remove(segmentIdentifer);
+            log.info(auSignalsPublished + " auSignals published from segment %s", segmentIdentifer.toString());
+            fireDepartmentMetrics.incrementAuSignalsPublishedCount(auSignalsPublished);
+          } else {
+            log.warn("Segment %s is missing from auSignalsToBePublished. Number of auSignals" +
+                     " published from this segment will not be reported to usage", segmentIdentifer.toString());
+          }
+        }
       }
 
       appenderator.close();
