@@ -149,6 +149,7 @@ public class QueryLifecycle
       emitLogsAndMetrics(e, remoteAddress, -1, -1);
       throw e;
     }
+
     return Sequences.wrap(
         results,
         new SequenceWrapper()
