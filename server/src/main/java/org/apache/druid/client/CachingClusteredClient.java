@@ -274,7 +274,6 @@ public class CachingClusteredClient implements QuerySegmentWalker
           return Sequences.empty();
         }
       }
-
       final List<Pair<Interval, byte[]>> alreadyCachedResults = pruneSegmentsWithCachedResults(queryCacheKey, segments);
       final SortedMap<DruidServer, List<SegmentDescriptor>> segmentsByServer = groupSegmentsByServer(segments);
       return new LazySequence<>(() -> {

@@ -63,10 +63,13 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.nio.ByteBuffer;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class GroupByQueryEngineV2
 {
@@ -92,7 +95,8 @@ public class GroupByQueryEngineV2
       final GroupByQuery query,
       final StorageAdapter storageAdapter,
       final NonBlockingPool<ByteBuffer> intermediateResultsBufferPool,
-      final GroupByQueryConfig querySpecificConfig
+      final GroupByQueryConfig querySpecificConfig,
+      AtomicLong numAuSignals
   )
   {
     if (storageAdapter == null) {
@@ -161,7 +165,8 @@ public class GroupByQueryEngineV2
                       dims,
                       allSingleValueDims,
                       // There must be 0 or 1 dimension if isArrayAggregateApplicable() is true
-                      dims.length == 0 ? 1 : storageAdapter.getDimensionCardinality(dims[0].getName())
+                      dims.length == 0 ? 1 : storageAdapter.getDimensionCardinality(dims[0].getName()),
+                      numAuSignals
                   );
                 } else {
                   return new HashAggregateIterator(
@@ -171,7 +176,8 @@ public class GroupByQueryEngineV2
                       buffer,
                       fudgeTimestamp,
                       dims,
-                      allSingleValueDims
+                      allSingleValueDims,
+                      numAuSignals
                   );
                 }
               }
@@ -279,9 +285,11 @@ public class GroupByQueryEngineV2
     protected final GroupByColumnSelectorPlus[] dims;
     protected final DateTime timestamp;
 
+    private final ColumnValueSelector[] columnValueSelectors;
+    private final int numColumnsCannotMiss;
     protected CloseableGrouperIterator<KeyType, Row> delegate = null;
     protected final boolean allSingleValueDims;
-
+    private final AtomicLong numAuSignals;
     public GroupByEngineIterator(
         final GroupByQuery query,
         final GroupByQueryConfig querySpecificConfig,
@@ -289,7 +297,8 @@ public class GroupByQueryEngineV2
         final ByteBuffer buffer,
         final DateTime fudgeTimestamp,
         final GroupByColumnSelectorPlus[] dims,
-        final boolean allSingleValueDims
+        final boolean allSingleValueDims,
+        AtomicLong numAuSignals
     )
     {
       this.query = query;
@@ -298,10 +307,50 @@ public class GroupByQueryEngineV2
       this.buffer = buffer;
       this.keySerde = new GroupByEngineKeySerde(dims);
       this.dims = dims;
+      this.numAuSignals = numAuSignals;
+
+      /* define columns invovled to can miss and cannot miss,
+       * can miss means Aggregator column, and in some rows the value can miss and be the default value,
+       * which will not be charge,
+       * cannot miss means Dimension column and filter column, which will be charged no matter value miss or not*/
+      Set<String> requiredColumnsCanMiss = new HashSet<>();
+      Set<String> requiredColumnsCannotMiss = new HashSet<>();
+
+      for (AggregatorFactory aggregatorFactory : query.getAggregatorSpecs()) {
+        requiredColumnsCanMiss.addAll(aggregatorFactory.requiredFields());
+      }
+      requiredColumnsCannotMiss.addAll(query.getFilter().getRequiredColumns());
+
+      for (DimensionSpec dimensionSpec : query.getDimensions()) {
+        requiredColumnsCannotMiss.add(dimensionSpec.getDimension());
+      }
+      numColumnsCannotMiss = requiredColumnsCannotMiss.size();
+
+      for (String columns : requiredColumnsCannotMiss) {
+        requiredColumnsCanMiss.remove(columns);
+      }
+      columnValueSelectors = new ColumnValueSelector[requiredColumnsCanMiss.size()];
+      int i = 0;
+      for (String requiredColumn : requiredColumnsCanMiss) {
+        columnValueSelectors[i++] = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
+      }
 
       // Time is the same for every row in the cursor
       this.timestamp = fudgeTimestamp != null ? fudgeTimestamp : cursor.getTime();
       this.allSingleValueDims = allSingleValueDims;
+    }
+
+    protected void count()
+    {
+      int columninvolved = 0;
+      for (ColumnValueSelector columnValueSelector : columnValueSelectors) {
+        Object value = columnValueSelector.getObject();
+        if (value == null || value.equals(0) || "".equals(value)) {
+          continue;
+        }
+        columninvolved++;
+      }
+      numAuSignals.addAndGet(columninvolved + numColumnsCannotMiss);
     }
 
     private CloseableGrouperIterator<KeyType, Row> initNewDelegate()
@@ -426,10 +475,11 @@ public class GroupByQueryEngineV2
         ByteBuffer buffer,
         DateTime fudgeTimestamp,
         GroupByColumnSelectorPlus[] dims,
-        boolean allSingleValueDims
+        boolean allSingleValueDims,
+        AtomicLong numAuSignals
     )
     {
-      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims);
+      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims, numAuSignals);
 
       final int dimCount = query.getDimensions().size();
       stack = new int[dimCount];
@@ -466,6 +516,8 @@ public class GroupByQueryEngineV2
           );
         }
         keyBuffer.rewind();
+
+        count();
 
         if (!grouper.aggregate(keyBuffer).isOk()) {
           return;
@@ -579,10 +631,11 @@ public class GroupByQueryEngineV2
         DateTime fudgeTimestamp,
         GroupByColumnSelectorPlus[] dims,
         boolean allSingleValueDims,
-        int cardinality
+        int cardinality,
+        AtomicLong numAuSignals
     )
     {
-      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims);
+      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims, numAuSignals);
       this.cardinality = cardinality;
       if (dims.length == 1) {
         this.dim = dims[0];
@@ -628,6 +681,9 @@ public class GroupByQueryEngineV2
         } else {
           key = 0;
         }
+
+        count();
+
         if (!grouper.aggregate(key).isOk()) {
           return;
         }

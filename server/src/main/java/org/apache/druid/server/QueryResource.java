@@ -188,8 +188,8 @@ public class QueryResource implements QueryCountStatsProvider
       if (!authResult.isAllowed()) {
         throw new ForbiddenException(authResult.toString());
       }
-
-      final QueryLifecycle.QueryResponse queryResponse = queryLifecycle.execute();
+      AtomicLong numAuSignals = new AtomicLong(0);
+      final QueryLifecycle.QueryResponse queryResponse = queryLifecycle.execute(numAuSignals);
       final Sequence<?> results = queryResponse.getResults();
       final Map<String, Object> responseContext = queryResponse.getResponseContext();
       final String prevEtag = getPreviousEtag(req);
@@ -231,9 +231,7 @@ public class QueryResource implements QueryCountStatsProvider
                     finally {
                       Thread.currentThread().setName(currThreadName);
 
-                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(),
-                                                        (Long) responseContext.getOrDefault("cost", -1L)
-                      );
+                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), 0L);
 
                       if (e == null) {
                         successfulQueryCount.incrementAndGet();
@@ -245,7 +243,12 @@ public class QueryResource implements QueryCountStatsProvider
                 },
                 context.getContentType()
             )
-            .header("X-Druid-Query-Id", queryId);
+            .header("X-Druid-Query-Id", queryId)
+            .header("numAuSignals", responseContext.getOrDefault("numAuSignals", -1L));
+
+        if (responseContext.containsKey("numAuSignals")) {
+          responseContext.remove("numAuSignals");
+        }
 
         if (responseContext.get(HEADER_ETAG) != null) {
           builder.header(HEADER_ETAG, responseContext.get(HEADER_ETAG));
