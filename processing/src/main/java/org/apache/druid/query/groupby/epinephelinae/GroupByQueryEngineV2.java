@@ -328,6 +328,7 @@ public class GroupByQueryEngineV2
 
       for (VirtualColumn virtualColumn : query.getVirtualColumns().getVirtualColumns()) {
         requiredColumnsCannotMiss.addAll(virtualColumn.requiredColumns());
+        requiredColumnsCannotMiss.remove(virtualColumn.getOutputName());
       }
 
       numColumnsCannotMiss = requiredColumnsCannotMiss.size();
@@ -539,7 +540,7 @@ public class GroupByQueryEngineV2
         if (!currentRowWasPartiallyAggregated) {
           // Set up stack, valuess, and first grouping in keyBuffer for this row
           stackPointer = stack.length - 1;
-
+          count();
           for (int i = 0; i < dims.length; i++) {
             GroupByColumnSelectorStrategy strategy = dims[i].getColumnSelectorStrategy();
             strategy.initColumnValues(
@@ -711,6 +712,7 @@ public class GroupByQueryEngineV2
 
       while (!cursor.isDone()) {
         int multiValuesSize = multiValues.size();
+        count();
         if (multiValuesSize == 0) {
           if (!grouper.aggregate(GroupByColumnSelectorStrategy.GROUP_BY_MISSING_VALUE).isOk()) {
             return;
