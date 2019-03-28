@@ -333,7 +333,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
 
       final String topic = ioConfig.getStartPartitions().getTopic();
 
-      Map<SegmentIdentifier, Integer> auSignalsToBePublished = new HashMap<SegmentIdentifier, Integer>();
+      int processedAuSignals = 0;
 
       // Start up, set up initial offsets.
       final Object restoredMetadata = driver.startJob();
@@ -553,36 +553,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                       handleParseException(addResult.getParseException(), record);
                     } else {
                       rowIngestionMeters.incrementProcessed();
-
-                      SegmentIdentifier segmentIdentifier = addResult.getSegmentIdentifier();
-                      if (row instanceof MapBasedInputRow) {
-                        Map<String, Object> rowEvent = ((MapBasedInputRow) row).getEvent();
-                        int auSignalsProcessed = rowEvent.size();
-
-                        // The following keys do not count as signals at the time of this commit.
-                        if (rowEvent.containsKey(ASSET_AUI)) {
-                          auSignalsProcessed--;
-                        }
-                        if (rowEvent.containsKey(VIN)) {
-                          auSignalsProcessed--;
-                        }
-                        if (rowEvent.containsKey(ENVELOPE)) {
-                          auSignalsProcessed--;
-                        }
-
-                        log.info("The number of auSignals processed for segment %s is "
-                                 + auSignalsProcessed, segmentIdentifier);
-                        if (auSignalsToBePublished.containsKey(segmentIdentifier)) {
-                          int previousAuSignalsProcessed = auSignalsToBePublished.get(segmentIdentifier);
-                          auSignalsToBePublished.replace(segmentIdentifier, auSignalsProcessed
-                                                                                    + previousAuSignalsProcessed);
-                        } else {
-                          auSignalsToBePublished.put(segmentIdentifier, auSignalsProcessed);
-                        }
-                      } else {
-                        log.warn("The number of auSignals processed for segment %s "
-                                 + "will not be recorded for usage.", segmentIdentifier);
-                      }
+                      processedAuSignals += extractProcessedAuSignals(addResult.getSegmentIdentifier(), row);
                     }
                   } else {
                     rowIngestionMeters.incrementThrownAway();
@@ -607,6 +578,8 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                         }
                       }
                   );
+                  recordPersistedAuSignals(processedAuSignals);
+                  processedAuSignals = 0;
                 }
               }
               catch (ParseException e) {
@@ -670,6 +643,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
             throw e;
           }
         }
+        recordPersistedAuSignals(processedAuSignals);
       }
 
       synchronized (statusLock) {
@@ -728,19 +702,6 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
             ),
             Preconditions.checkNotNull(handedOff.getCommitMetadata(), "commitMetadata")
         );
-
-        List<SegmentIdentifier> segmentIdentifiers =
-            handedOff.getSegments().stream().map(SegmentIdentifier::fromDataSegment).collect(Collectors.toList());
-        for (SegmentIdentifier segmentIdentifer : segmentIdentifiers) {
-          if (auSignalsToBePublished.containsKey(segmentIdentifer)) {
-            int auSignalsPublished = auSignalsToBePublished.remove(segmentIdentifer);
-            log.info(auSignalsPublished + " auSignals published from segment %s", segmentIdentifer.toString());
-            fireDepartmentMetrics.incrementAuSignalsPublishedCount(auSignalsPublished);
-          } else {
-            log.warn("Segment %s is missing from auSignalsToBePublished. Number of auSignals" +
-                     " published from this segment will not be reported to usage", segmentIdentifer.toString());
-          }
-        }
       }
 
       appenderator.close();
@@ -999,6 +960,45 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
         rowIngestionMeters.getTotals()
     );
     return metrics;
+  }
+
+  private int extractProcessedAuSignals(SegmentIdentifier segmentIdentifier, InputRow row)
+  {
+    if (row instanceof MapBasedInputRow) {
+      int processAuSignalsFromRow = numberOfAuSignalsInFabricEnvelopeRow((MapBasedInputRow) row);
+
+      log.info("The number of auSignals processed for segment %s is "
+               + processAuSignalsFromRow, segmentIdentifier);
+      return processAuSignalsFromRow;
+    } else {
+      log.warn("The number of auSignals processed for segment %s "
+               + "will not be recorded for usage.", segmentIdentifier);
+      return 0;
+    }
+  }
+
+  private int numberOfAuSignalsInFabricEnvelopeRow(MapBasedInputRow mapBasedInputRow)
+  {
+    Map<String, Object> rowEvent = mapBasedInputRow.getEvent();
+    int processedAuSignalsFromRow = rowEvent.size();
+
+    // The following keys do not count as signals at the time of this commit.
+    if (rowEvent.containsKey(ASSET_AUI)) {
+      processedAuSignalsFromRow--;
+    }
+    if (rowEvent.containsKey(VIN)) {
+      processedAuSignalsFromRow--;
+    }
+    if (rowEvent.containsKey(ENVELOPE)) {
+      processedAuSignalsFromRow--;
+    }
+    return processedAuSignalsFromRow;
+  }
+
+  private void recordPersistedAuSignals(int processedAuSignals)
+  {
+    log.info(processedAuSignals + " auSignals persisted.");
+    fireDepartmentMetrics.incrementAuSignalsPersistedCount(processedAuSignals);
   }
 
   private void maybePersistAndPublishSequences(Supplier<Committer> committerSupplier)
