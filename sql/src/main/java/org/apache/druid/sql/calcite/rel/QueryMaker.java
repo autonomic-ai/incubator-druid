@@ -228,7 +228,7 @@ public class QueryMaker
 
                 morePages.set(false);
                 final AtomicBoolean gotResult = new AtomicBoolean();
-                final AtomicLong numAuSignals = new AtomicLong();
+                final AtomicLong numAuSignals = new AtomicLong(0);
 
                 return Sequences.concat(
                     Sequences.map(
