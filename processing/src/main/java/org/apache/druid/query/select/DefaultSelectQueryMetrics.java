@@ -172,6 +172,12 @@ public class DefaultSelectQueryMetrics implements SelectQueryMetrics
   }
 
   @Override
+  public QueryMetrics reportQueryNumAuSignals(long numAuSignals)
+  {
+    return delegateQueryMetrics.reportQueryNumAuSignals(numAuSignals);
+  }
+
+  @Override
   public QueryMetrics reportWaitTime(long timeNs)
   {
     return delegateQueryMetrics.reportWaitTime(timeNs);
