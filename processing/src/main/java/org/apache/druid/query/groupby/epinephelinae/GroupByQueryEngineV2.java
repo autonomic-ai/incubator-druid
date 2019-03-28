@@ -53,6 +53,7 @@ import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.StorageAdapter;
+import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.data.IndexedInts;
@@ -324,6 +325,11 @@ public class GroupByQueryEngineV2
       for (DimensionSpec dimensionSpec : query.getDimensions()) {
         requiredColumnsCannotMiss.add(dimensionSpec.getDimension());
       }
+
+      for (VirtualColumn virtualColumn : query.getVirtualColumns().getVirtualColumns()) {
+        requiredColumnsCannotMiss.addAll(virtualColumn.requiredColumns());
+      }
+
       numColumnsCannotMiss = requiredColumnsCannotMiss.size();
 
       for (String columns : requiredColumnsCannotMiss) {
