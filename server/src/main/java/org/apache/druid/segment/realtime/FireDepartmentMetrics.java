@@ -45,7 +45,7 @@ public class FireDepartmentMetrics
   private final AtomicLong sinkCount = new AtomicLong(0);
   private final AtomicLong messageMaxTimestamp = new AtomicLong(0);
   private final AtomicLong messageGap = new AtomicLong(0);
-  private final AtomicLong auSignalsPersistedCount = new AtomicLong(0);
+  private final AtomicLong auSignalsPublishedCount = new AtomicLong(0);
 
   public void incrementProcessed()
   {
@@ -122,9 +122,9 @@ public class FireDepartmentMetrics
     handOffCount.incrementAndGet();
   }
 
-  public void incrementAuSignalsPersistedCount(long auSignalsPersisted)
+  public void incrementAuSignalsPublishedCount(long auSignalsPublished)
   {
-    auSignalsPersistedCount.addAndGet(auSignalsPersisted);
+    auSignalsPublishedCount.addAndGet(auSignalsPublished);
   }
 
   public void setSinkCount(long sinkCount)
@@ -227,9 +227,9 @@ public class FireDepartmentMetrics
     return messageGap.get();
   }
 
-  public long auSignalsPersistedCount()
+  public long auSignalsPublishedCount()
   {
-    return auSignalsPersistedCount.get();
+    return auSignalsPublishedCount.get();
   }
 
   public FireDepartmentMetrics snapshot()
@@ -253,7 +253,7 @@ public class FireDepartmentMetrics
     retVal.sinkCount.set(sinkCount.get());
     retVal.messageMaxTimestamp.set(messageMaxTimestamp.get());
     retVal.messageGap.set(System.currentTimeMillis() - messageMaxTimestamp.get());
-    retVal.auSignalsPersistedCount.set(auSignalsPersistedCount.get());
+    retVal.auSignalsPublishedCount.set(auSignalsPublishedCount.get());
     return retVal;
   }
 

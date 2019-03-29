@@ -553,7 +553,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                       handleParseException(addResult.getParseException(), record);
                     } else {
                       rowIngestionMeters.incrementProcessed();
-                      processedAuSignals += extractProcessedAuSignals(addResult.getSegmentIdentifier(), row);
+                      processedAuSignals += extractPublishedAuSignals(addResult.getSegmentIdentifier(), row);
                     }
                   } else {
                     rowIngestionMeters.incrementThrownAway();
@@ -578,8 +578,6 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                         }
                       }
                   );
-                  recordPersistedAuSignals(processedAuSignals);
-                  processedAuSignals = 0;
                 }
               }
               catch (ParseException e) {
@@ -643,7 +641,6 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
             throw e;
           }
         }
-        recordPersistedAuSignals(processedAuSignals);
       }
 
       synchronized (statusLock) {
@@ -671,6 +668,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
 
       // Wait for publish futures to complete.
       Futures.allAsList(publishWaitList).get();
+      recordPublishedAuSignals(processedAuSignals);
 
       // Wait for handoff futures to complete.
       // Note that every publishing task (created by calling AppenderatorDriver.publish()) has a corresponding
@@ -962,7 +960,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
     return metrics;
   }
 
-  private int extractProcessedAuSignals(SegmentIdentifier segmentIdentifier, InputRow row)
+  private int extractPublishedAuSignals(SegmentIdentifier segmentIdentifier, InputRow row)
   {
     if (row instanceof MapBasedInputRow) {
       int processAuSignalsFromRow = numberOfAuSignalsInFabricEnvelopeRow((MapBasedInputRow) row);
@@ -995,10 +993,10 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
     return processedAuSignalsFromRow;
   }
 
-  private void recordPersistedAuSignals(int processedAuSignals)
+  private void recordPublishedAuSignals(int processedAuSignals)
   {
     log.info(processedAuSignals + " auSignals persisted.");
-    fireDepartmentMetrics.incrementAuSignalsPersistedCount(processedAuSignals);
+    fireDepartmentMetrics.incrementAuSignalsPublishedCount(processedAuSignals);
   }
 
   private void maybePersistAndPublishSequences(Supplier<Committer> committerSupplier)
