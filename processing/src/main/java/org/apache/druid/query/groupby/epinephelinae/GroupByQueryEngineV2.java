@@ -320,8 +320,9 @@ public class GroupByQueryEngineV2
       for (AggregatorFactory aggregatorFactory : query.getAggregatorSpecs()) {
         requiredColumnsCanMiss.addAll(aggregatorFactory.requiredFields());
       }
-      requiredColumnsCannotMiss.addAll(query.getFilter().getRequiredColumns());
-
+      if (query.getFilter() != null) {
+        requiredColumnsCannotMiss.addAll(query.getFilter().getRequiredColumns());
+      }
       for (DimensionSpec dimensionSpec : query.getDimensions()) {
         requiredColumnsCannotMiss.add(dimensionSpec.getDimension());
       }
