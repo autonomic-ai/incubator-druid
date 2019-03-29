@@ -32,7 +32,6 @@ import org.apache.druid.segment.StorageAdapter;
 
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 
 public interface GroupByStrategy
 {
@@ -100,6 +99,6 @@ public interface GroupByStrategy
   Sequence<Row> process(
       GroupByQuery query,
       StorageAdapter storageAdapter,
-      AtomicLong numAuSignals
+      Map<String, Object> responseContextnumAuSignals
   );
 }

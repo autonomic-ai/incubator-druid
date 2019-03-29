@@ -36,7 +36,6 @@ import org.apache.druid.segment.StorageAdapter;
 
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -106,8 +105,7 @@ public class GroupByQueryRunnerFactory implements QueryRunnerFactory<Row, GroupB
         throw new ISE("Got a [%s] which isn't a %s", query.getClass(), GroupByQuery.class);
       }
 
-      AtomicLong numAuSignals = (AtomicLong) responseContext.get("numAuSignals");
-      return strategySelector.strategize((GroupByQuery) query).process((GroupByQuery) query, adapter, numAuSignals);
+      return strategySelector.strategize((GroupByQuery) query).process((GroupByQuery) query, adapter, responseContext);
     }
   }
 }

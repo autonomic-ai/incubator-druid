@@ -97,7 +97,7 @@ public class GroupByQueryEngineV2
       final StorageAdapter storageAdapter,
       final NonBlockingPool<ByteBuffer> intermediateResultsBufferPool,
       final GroupByQueryConfig querySpecificConfig,
-      AtomicLong numAuSignals
+      Map<String, Object> responseContext
   )
   {
     if (storageAdapter == null) {
@@ -167,7 +167,7 @@ public class GroupByQueryEngineV2
                       allSingleValueDims,
                       // There must be 0 or 1 dimension if isArrayAggregateApplicable() is true
                       dims.length == 0 ? 1 : storageAdapter.getDimensionCardinality(dims[0].getName()),
-                      numAuSignals
+                      responseContext
                   );
                 } else {
                   return new HashAggregateIterator(
@@ -178,7 +178,7 @@ public class GroupByQueryEngineV2
                       fudgeTimestamp,
                       dims,
                       allSingleValueDims,
-                      numAuSignals
+                      responseContext
                   );
                 }
               }
@@ -287,7 +287,6 @@ public class GroupByQueryEngineV2
     protected final DateTime timestamp;
 
     private final ColumnValueSelector[] columnValueSelectors;
-    private final int numColumnsCannotMiss;
     protected CloseableGrouperIterator<KeyType, Row> delegate = null;
     protected final boolean allSingleValueDims;
     private final AtomicLong numAuSignals;
@@ -299,7 +298,7 @@ public class GroupByQueryEngineV2
         final DateTime fudgeTimestamp,
         final GroupByColumnSelectorPlus[] dims,
         final boolean allSingleValueDims,
-        AtomicLong numAuSignals
+        Map<String, Object> responseContext
     )
     {
       this.query = query;
@@ -308,38 +307,28 @@ public class GroupByQueryEngineV2
       this.buffer = buffer;
       this.keySerde = new GroupByEngineKeySerde(dims);
       this.dims = dims;
-      this.numAuSignals = numAuSignals;
+      this.numAuSignals = (AtomicLong) responseContext.get("numAuSignals");
 
-      /* define columns invovled to can miss and cannot miss,
-       * can miss means Aggregator column, and in some rows the value can miss and be the default value,
-       * which will not be charge,
-       * cannot miss means Dimension column and filter column, which will be charged no matter value miss or not*/
-      Set<String> requiredColumnsCanMiss = new HashSet<>();
-      Set<String> requiredColumnsCannotMiss = new HashSet<>();
+      Set<String> requiredColumns = new HashSet<>();
 
       for (AggregatorFactory aggregatorFactory : query.getAggregatorSpecs()) {
-        requiredColumnsCanMiss.addAll(aggregatorFactory.requiredFields());
+        requiredColumns.addAll(aggregatorFactory.requiredFields());
       }
       if (query.getFilter() != null) {
-        requiredColumnsCannotMiss.addAll(query.getFilter().getRequiredColumns());
+        requiredColumns.addAll(query.getFilter().getRequiredColumns());
       }
       for (DimensionSpec dimensionSpec : query.getDimensions()) {
-        requiredColumnsCannotMiss.add(dimensionSpec.getDimension());
+        requiredColumns.add(dimensionSpec.getDimension());
       }
 
       for (VirtualColumn virtualColumn : query.getVirtualColumns().getVirtualColumns()) {
-        requiredColumnsCannotMiss.addAll(virtualColumn.requiredColumns());
-        requiredColumnsCannotMiss.remove(virtualColumn.getOutputName());
+        requiredColumns.addAll(virtualColumn.requiredColumns());
+        requiredColumns.remove(virtualColumn.getOutputName());
       }
 
-      numColumnsCannotMiss = requiredColumnsCannotMiss.size();
-
-      for (String columns : requiredColumnsCannotMiss) {
-        requiredColumnsCanMiss.remove(columns);
-      }
-      columnValueSelectors = new ColumnValueSelector[requiredColumnsCanMiss.size()];
+      columnValueSelectors = new ColumnValueSelector[requiredColumns.size()];
       int i = 0;
-      for (String requiredColumn : requiredColumnsCanMiss) {
+      for (String requiredColumn : requiredColumns) {
         columnValueSelectors[i++] = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
       }
 
@@ -358,7 +347,7 @@ public class GroupByQueryEngineV2
         }
         columninvolved++;
       }
-      numAuSignals.addAndGet(columninvolved + numColumnsCannotMiss);
+      numAuSignals.addAndGet(columninvolved);
     }
 
     private CloseableGrouperIterator<KeyType, Row> initNewDelegate()
@@ -484,10 +473,10 @@ public class GroupByQueryEngineV2
         DateTime fudgeTimestamp,
         GroupByColumnSelectorPlus[] dims,
         boolean allSingleValueDims,
-        AtomicLong numAuSignals
+        Map<String, Object> responseContext
     )
     {
-      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims, numAuSignals);
+      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims, responseContext);
 
       final int dimCount = query.getDimensions().size();
       stack = new int[dimCount];
@@ -640,10 +629,10 @@ public class GroupByQueryEngineV2
         GroupByColumnSelectorPlus[] dims,
         boolean allSingleValueDims,
         int cardinality,
-        AtomicLong numAuSignals
+        Map<String, Object> responseContext
     )
     {
-      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims, numAuSignals);
+      super(query, querySpecificConfig, cursor, buffer, fudgeTimestamp, dims, allSingleValueDims, responseContext);
       this.cardinality = cardinality;
       if (dims.length == 1) {
         this.dim = dims[0];

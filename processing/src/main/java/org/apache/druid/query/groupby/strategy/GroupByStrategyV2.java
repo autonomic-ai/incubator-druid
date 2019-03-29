@@ -79,7 +79,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class GroupByStrategyV2 implements GroupByStrategy
@@ -473,9 +472,9 @@ public class GroupByStrategyV2 implements GroupByStrategy
   public Sequence<Row> process(
       GroupByQuery query,
       StorageAdapter storageAdapter,
-      AtomicLong numAuSignals
+      Map<String, Object> responseContext
   )
   {
-    return GroupByQueryEngineV2.process(query, storageAdapter, bufferPool, configSupplier.get().withOverrides(query), numAuSignals);
+    return GroupByQueryEngineV2.process(query, storageAdapter, bufferPool, configSupplier.get().withOverrides(query), responseContext);
   }
 }
