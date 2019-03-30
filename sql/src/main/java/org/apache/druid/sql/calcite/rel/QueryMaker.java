@@ -159,14 +159,14 @@ public class QueryMaker
       columnMapping[i] = index == null ? -1 : index;
     }
 
-    AtomicLong numOfAuSignals = new AtomicLong(0);
+    AtomicLong numAuSignals = new AtomicLong(0);
     return Sequences.concat(
         Sequences.map(
-            runQuery(query, numOfAuSignals),
+            runQuery(query, numAuSignals),
             scanResult -> {
               final List<Object[]> retVals = new ArrayList<>();
               final List<List<Object>> rows = (List<List<Object>>) scanResult.getEvents();
-              numOfAuSignals.addAndGet(rows.size() * scanResult.getColumns().size());
+              numAuSignals.addAndGet(rows.size() * scanResult.getColumns().size());
               for (List<Object> row : rows) {
                 final Object[] retVal = new Object[fieldList.size()];
                 for (RelDataTypeField field : fieldList) {
@@ -228,10 +228,11 @@ public class QueryMaker
 
                 morePages.set(false);
                 final AtomicBoolean gotResult = new AtomicBoolean();
+                final AtomicLong numAuSignals = new AtomicLong(0);
 
                 return Sequences.concat(
                     Sequences.map(
-                        runQuery(queryWithPagination, null),
+                        runQuery(queryWithPagination, numAuSignals),
                         new Function<Result<SelectResultValue>, Sequence<Object[]>>()
                         {
                           @Override
@@ -243,6 +244,8 @@ public class QueryMaker
 
                             pagingIdentifiers.set(result.getValue().getPagingIdentifiers());
                             final List<Object[]> retVals = new ArrayList<>();
+                            numAuSignals.addAndGet(result.getValue().getEvents().size() *
+                                                   result.getValue().getMetrics().size());
                             for (EventHolder holder : result.getValue().getEvents()) {
                               morePages.set(true);
                               final Map<String, Object> map = holder.getEvent();
@@ -290,11 +293,11 @@ public class QueryMaker
   }
 
   @SuppressWarnings("unchecked")
-  private <T> Sequence<T> runQuery(final Query<T> query, AtomicLong numOfAuSignals)
+  private <T> Sequence<T> runQuery(final Query<T> query, AtomicLong numAuSignals)
   {
     Hook.QUERY_PLAN.run(query);
     final AuthenticationResult authenticationResult = plannerContext.getAuthenticationResult();
-    return queryLifecycleFactory.factorize().runSimple(query, authenticationResult, null, numOfAuSignals);
+    return queryLifecycleFactory.factorize().runSimple(query, authenticationResult, null, numAuSignals);
   }
 
   private Sequence<Object[]> executeTimeseries(
