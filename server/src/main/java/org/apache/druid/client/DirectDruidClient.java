@@ -55,6 +55,7 @@ import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.QueryWatcher;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -89,6 +90,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
 {
   public static final String QUERY_FAIL_TIME = "queryFailTime";
   public static final String QUERY_TOTAL_BYTES_GATHERED = "queryTotalBytesGathered";
+
 
   private static final Logger log = new Logger(DirectDruidClient.class);
 
@@ -260,10 +262,10 @@ public class DirectDruidClient<T> implements QueryRunner<T>
 
             /* accumulate numAuSingal from response from data nodes */
             AtomicLong numAuSignals;
-            if ((numAuSignals = (AtomicLong) context.get("numAuSignals")) != null) {
-              if (response.headers().contains("numAuSignals")) {
-                numAuSignals.addAndGet(Long.parseLong(response.headers().get("numAuSignals")));
-                response.headers().remove("numAuSignals");
+            if ((numAuSignals = (AtomicLong) context.get(UsageUtils.NUM_AU_SIGNALS)) != null) {
+              if (response.headers().contains(UsageUtils.AU_SIGNALS)) {
+                numAuSignals.addAndGet(Long.parseLong(response.headers().get(UsageUtils.AU_SIGNALS)));
+                response.headers().remove(UsageUtils.AU_SIGNALS);
               }
             }
             // context may be null in case of error or query timeout
@@ -274,6 +276,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
                   )
               );
             }
+            ((AtomicLong) context.get(UsageUtils.NUM_AU_SIGNALS)).get();
             continueReading = enqueue(response.getContent(), 0L);
           }
           catch (final IOException e) {

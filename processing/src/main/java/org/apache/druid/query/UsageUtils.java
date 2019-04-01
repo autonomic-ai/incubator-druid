@@ -28,6 +28,7 @@ import org.apache.druid.segment.NilColumnValueSelector;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.VirtualColumns;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -36,12 +37,15 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class UsageUtils
 {
+  public static final String NUM_AU_SIGNALS = "numAuSignals";
+  public static final String AU_SIGNALS = "X-Druid-Au-Signals";
+
   public static List<ColumnValueSelector> makeRequiredSelectors(
-      List<DimensionSpec> dimensionSpecs,
+      @Nullable List<DimensionSpec> dimensionSpecs,
       VirtualColumns virtualColumns,
       DimFilter dimFilter,
       List<AggregatorFactory> aggregatorFactories,
-      List<String> columns,
+      @Nullable List<String> columns,
       Cursor cursor
   )
   {

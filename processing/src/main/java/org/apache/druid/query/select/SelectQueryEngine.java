@@ -282,7 +282,7 @@ public class SelectQueryEngine
                   selectorPlusList,
                   metSelectors
               );
-              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get("numAuSignals"), columnValueSelectors);
+              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
               builder.addEntry(
                   new EventHolder(
                       segmentId,

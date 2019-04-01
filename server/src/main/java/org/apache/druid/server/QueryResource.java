@@ -45,6 +45,7 @@ import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
@@ -230,6 +231,8 @@ public class QueryResource implements QueryCountStatsProvider
                     finally {
                       Thread.currentThread().setName(currThreadName);
 
+                      /* This place will emit query metrics from data nodes, and query node if we use
+                       * druid built-in query instead of sql, so set numAuSignals to 0 can suppress this emission */
                       queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), 0L);
 
                       if (e == null) {
@@ -243,11 +246,8 @@ public class QueryResource implements QueryCountStatsProvider
                 context.getContentType()
             )
             .header("X-Druid-Query-Id", queryId)
-            .header("numAuSignals", responseContext.getOrDefault("numAuSignals", -1L));
-
-        if (responseContext.containsKey("numAuSignals")) {
-          responseContext.remove("numAuSignals");
-        }
+            .header(UsageUtils.AU_SIGNALS, responseContext.getOrDefault(UsageUtils.NUM_AU_SIGNALS, -1L));
+        responseContext.remove(UsageUtils.NUM_AU_SIGNALS);
 
         if (responseContext.get(HEADER_ETAG) != null) {
           builder.header(HEADER_ETAG, responseContext.get(HEADER_ETAG));

@@ -40,6 +40,7 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -137,7 +138,7 @@ public class QueryLifecycle
 
       final QueryLifecycle.QueryResponse queryResponse = execute();
       results = queryResponse.getResults();
-      numAuSignals = (AtomicLong) queryResponse.getResponseContext().get("numAuSignals");
+      numAuSignals = (AtomicLong) queryResponse.getResponseContext().get(UsageUtils.NUM_AU_SIGNALS);
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, remoteAddress, -1, -1);
@@ -253,7 +254,7 @@ public class QueryLifecycle
 
     final Map<String, Object> responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    responseContext.put("numAuSignals", new AtomicLong(0));
+    responseContext.put(UsageUtils.NUM_AU_SIGNALS, new AtomicLong(0));
     final Sequence res = QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
                                   .run(texasRanger, responseContext);

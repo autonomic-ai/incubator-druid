@@ -305,7 +305,7 @@ public class GroupByQueryEngineV2
       this.buffer = buffer;
       this.keySerde = new GroupByEngineKeySerde(dims);
       this.dims = dims;
-      this.numAuSignals = (AtomicLong) responseContext.get("numAuSignals");
+      this.numAuSignals = (AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS);
 
 
       

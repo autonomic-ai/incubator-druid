@@ -223,7 +223,7 @@ public class ScanQueryEngine
                               for (int j = 0; j < allColumns.size(); j++) {
                                 theEvent.add(getColumnValue(j));
                               }
-                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get("numAuSignals"), columnValueSelectors);
+                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
                               events.add(theEvent);
                             }
                             return events;
@@ -238,7 +238,7 @@ public class ScanQueryEngine
                               for (int j = 0; j < allColumns.size(); j++) {
                                 theEvent.put(allColumns.get(j), getColumnValue(j));
                               }
-                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get("numAuSignals"), columnValueSelectors);
+                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
                               events.add(theEvent);
                             }
                             return events;
