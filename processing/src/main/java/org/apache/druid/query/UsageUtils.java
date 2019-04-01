@@ -54,7 +54,7 @@ public class UsageUtils
   public static List<ColumnValueSelector> makeRequiredSelectors(
       @Nullable List<DimensionSpec> dimensionSpecs,
       VirtualColumns virtualColumns,
-      DimFilter dimFilter,
+      @Nullable DimFilter dimFilter,
       @Nullable List<AggregatorFactory> aggregatorFactories,
       @Nullable List<String> columns,
       Cursor cursor

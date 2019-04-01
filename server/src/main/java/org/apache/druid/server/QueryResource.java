@@ -231,8 +231,10 @@ public class QueryResource implements QueryCountStatsProvider
                     finally {
                       Thread.currentThread().setName(currThreadName);
 
-                      /* This place will emit query metrics from data nodes, and query node if we use
-                       * druid built-in query instead of sql, so set numAuSignals to 0 can suppress this emission */
+                      /* We don't emit numAuSignals here because this is run inside Historical, MiddleManager,
+                      and also query nodes when the query is issued with native Druid language.
+                      The external language we use is SQL. The numAuSignals are accumulated in SQL layer,
+                      in particular, QueryMaker. */
                       queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), 0L);
 
                       if (e == null) {
