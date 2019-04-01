@@ -34,6 +34,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.BaseSequence;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.ColumnSelectorPlus;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.dimension.ColumnSelectorStrategyFactory;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -53,7 +54,6 @@ import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionHandlerUtils;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.StorageAdapter;
-import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.column.ColumnCapabilities;
 import org.apache.druid.segment.column.ValueType;
 import org.apache.druid.segment.data.IndexedInts;
@@ -64,12 +64,10 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.nio.ByteBuffer;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class GroupByQueryEngineV2
@@ -286,10 +284,10 @@ public class GroupByQueryEngineV2
     protected final GroupByColumnSelectorPlus[] dims;
     protected final DateTime timestamp;
 
-    private final ColumnValueSelector[] columnValueSelectors;
+    protected final List<ColumnValueSelector> columnValueSelectors;
     protected CloseableGrouperIterator<KeyType, Row> delegate = null;
     protected final boolean allSingleValueDims;
-    private final AtomicLong numAuSignals;
+    protected final AtomicLong numAuSignals;
     public GroupByEngineIterator(
         final GroupByQuery query,
         final GroupByQueryConfig querySpecificConfig,
@@ -309,45 +307,20 @@ public class GroupByQueryEngineV2
       this.dims = dims;
       this.numAuSignals = (AtomicLong) responseContext.get("numAuSignals");
 
-      Set<String> requiredColumns = new HashSet<>();
 
-      for (AggregatorFactory aggregatorFactory : query.getAggregatorSpecs()) {
-        requiredColumns.addAll(aggregatorFactory.requiredFields());
-      }
-      if (query.getFilter() != null) {
-        requiredColumns.addAll(query.getFilter().getRequiredColumns());
-      }
-      for (DimensionSpec dimensionSpec : query.getDimensions()) {
-        requiredColumns.add(dimensionSpec.getDimension());
-      }
-
-      for (VirtualColumn virtualColumn : query.getVirtualColumns().getVirtualColumns()) {
-        requiredColumns.addAll(virtualColumn.requiredColumns());
-        requiredColumns.remove(virtualColumn.getOutputName());
-      }
-
-      columnValueSelectors = new ColumnValueSelector[requiredColumns.size()];
-      int i = 0;
-      for (String requiredColumn : requiredColumns) {
-        columnValueSelectors[i++] = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
-      }
+      
+      this.columnValueSelectors = UsageUtils.makeRequiredSelectors(
+          query.getDimensions(),
+          query.getVirtualColumns(),
+          query.getDimFilter(),
+          query.getAggregatorSpecs(),
+          null,
+          cursor
+      );
 
       // Time is the same for every row in the cursor
       this.timestamp = fudgeTimestamp != null ? fudgeTimestamp : cursor.getTime();
       this.allSingleValueDims = allSingleValueDims;
-    }
-
-    protected void count()
-    {
-      int columninvolved = 0;
-      for (ColumnValueSelector columnValueSelector : columnValueSelectors) {
-        Object value = columnValueSelector.getObject();
-        if (value == null || value.equals(0) || "".equals(value)) {
-          continue;
-        }
-        columninvolved++;
-      }
-      numAuSignals.addAndGet(columninvolved);
     }
 
     private CloseableGrouperIterator<KeyType, Row> initNewDelegate()
@@ -514,7 +487,7 @@ public class GroupByQueryEngineV2
         }
         keyBuffer.rewind();
 
-        count();
+        UsageUtils.incrementAuSignals(numAuSignals, columnValueSelectors);
 
         if (!grouper.aggregate(keyBuffer).isOk()) {
           return;
@@ -530,7 +503,7 @@ public class GroupByQueryEngineV2
         if (!currentRowWasPartiallyAggregated) {
           // Set up stack, valuess, and first grouping in keyBuffer for this row
           stackPointer = stack.length - 1;
-          count();
+          UsageUtils.incrementAuSignals(numAuSignals, columnValueSelectors);
           for (int i = 0; i < dims.length; i++) {
             GroupByColumnSelectorStrategy strategy = dims[i].getColumnSelectorStrategy();
             strategy.initColumnValues(
@@ -679,7 +652,7 @@ public class GroupByQueryEngineV2
           key = 0;
         }
 
-        count();
+        UsageUtils.incrementAuSignals(numAuSignals, columnValueSelectors);
 
         if (!grouper.aggregate(key).isOk()) {
           return;
@@ -702,7 +675,7 @@ public class GroupByQueryEngineV2
 
       while (!cursor.isDone()) {
         int multiValuesSize = multiValues.size();
-        count();
+        UsageUtils.incrementAuSignals(numAuSignals, columnValueSelectors);
         if (multiValuesSize == 0) {
           if (!grouper.aggregate(GroupByColumnSelectorStrategy.GROUP_BY_MISSING_VALUE).isOk()) {
             return;

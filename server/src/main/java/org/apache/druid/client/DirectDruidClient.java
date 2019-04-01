@@ -257,10 +257,14 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           final boolean continueReading;
           try {
             final String responseContext = response.headers().get("X-Druid-Response-Context");
-            AtomicLong numAuSignals = (AtomicLong) context.get("numAuSignals");
-            if (response.headers().contains("numAuSignals")) {
-              numAuSignals.addAndGet(Long.parseLong(response.headers().get("numAuSignals")));
-              response.headers().remove("numAuSignals");
+
+            /* accumulate numAuSingal from response from data nodes */
+            AtomicLong numAuSignals;
+            if ((numAuSignals = (AtomicLong) context.get("numAuSignals")) != null) {
+              if (response.headers().contains("numAuSignals")) {
+                numAuSignals.addAndGet(Long.parseLong(response.headers().get("numAuSignals")));
+                response.headers().remove("numAuSignals");
+              }
             }
             // context may be null in case of error or query timeout
             if (responseContext != null) {

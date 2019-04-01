@@ -61,7 +61,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * <ol>
  * <li>Initialization ({@link #initialize(Query)})</li>
  * <li>Authorization ({@link #authorize(HttpServletRequest)}</li>
- * <li>Execution ({@link #execute(AtomicLong)}</li>
+ * <li>Execution ({@link #execute()}</li>
  * <li>Logging ({@link #emitLogsAndMetrics(Throwable, String, long, long)}</li>
  * </ol>
  *
@@ -121,18 +121,11 @@ public class QueryLifecycle
   public <T> Sequence<T> runSimple(
       final Query<T> query,
       final AuthenticationResult authenticationResult,
-      @Nullable final String remoteAddress,
-      @Nullable AtomicLong numAuSignals
+      @Nullable final String remoteAddress
   )
   {
     initialize(query);
-    final AtomicLong numAuSignalsToEmitAtomic;
-
-    if (numAuSignals == null) {
-      numAuSignalsToEmitAtomic = new AtomicLong(0);
-    } else {
-      numAuSignalsToEmitAtomic = numAuSignals;
-    }
+    final AtomicLong numAuSignals;
 
     final Sequence<T> results;
 
@@ -142,8 +135,9 @@ public class QueryLifecycle
         throw new ISE("Unauthorized");
       }
 
-      final QueryLifecycle.QueryResponse queryResponse = execute(numAuSignalsToEmitAtomic);
+      final QueryLifecycle.QueryResponse queryResponse = execute();
       results = queryResponse.getResults();
+      numAuSignals = (AtomicLong) queryResponse.getResponseContext().get("numAuSignals");
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, remoteAddress, -1, -1);
@@ -157,7 +151,7 @@ public class QueryLifecycle
           @Override
           public void after(final boolean isDone, final Throwable thrown)
           {
-            emitLogsAndMetrics(thrown, remoteAddress, -1, numAuSignalsToEmitAtomic.get());
+            emitLogsAndMetrics(thrown, remoteAddress, -1, numAuSignals.get());
           }
         }
     );
@@ -253,12 +247,13 @@ public class QueryLifecycle
    *
    * @return result sequence and response context
    */
-  public QueryResponse execute(AtomicLong numAuSignals)
+  public QueryResponse execute()
   {
     transition(State.AUTHORIZED, State.EXECUTING);
 
     final Map<String, Object> responseContext = DirectDruidClient.makeResponseContextForQuery();
-    responseContext.put("numAuSignals", numAuSignals);
+
+    responseContext.put("numAuSignals", new AtomicLong(0));
     final Sequence res = QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
                                   .run(texasRanger, responseContext);

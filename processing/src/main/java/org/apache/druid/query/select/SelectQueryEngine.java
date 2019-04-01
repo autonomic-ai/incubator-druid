@@ -28,9 +28,11 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.ColumnSelectorPlus;
 import org.apache.druid.query.QueryRunnerHelper;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.dimension.ColumnSelectorStrategy;
 import org.apache.druid.query.dimension.ColumnSelectorStrategyFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -58,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -182,7 +185,9 @@ public class SelectQueryEngine
     }
   }
 
-  public Sequence<Result<SelectResultValue>> process(final SelectQuery query, final Segment segment)
+  public Sequence<Result<SelectResultValue>> process(final SelectQuery query,
+                                                     final Segment segment,
+                                                     Map<String, Object> responseContext)
   {
     final StorageAdapter adapter = segment.asStorageAdapter();
 
@@ -228,12 +233,21 @@ public class SelectQueryEngine
           @Override
           public Result<SelectResultValue> apply(Cursor cursor)
           {
+            List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
+                query.getDimensions(),
+                query.getVirtualColumns(),
+                query.getFilter(),
+                null,
+                query.getMetrics(),
+                cursor
+            );
+
             final SelectResultValueBuilder builder = new SelectResultValueBuilder(
                 cursor.getTime(),
                 query.getPagingSpec(),
                 query.isDescending()
             );
-
+            Logger log = new Logger(this.getClass());
             final BaseLongColumnValueSelector timestampColumnSelector =
                 cursor.getColumnSelectorFactory().makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
 
@@ -244,7 +258,6 @@ public class SelectQueryEngine
                     cursor.getColumnSelectorFactory()
                 )
             );
-
             for (DimensionSpec dimSpec : dims) {
               builder.addDimension(dimSpec.getOutputName());
             }
@@ -269,7 +282,7 @@ public class SelectQueryEngine
                   selectorPlusList,
                   metSelectors
               );
-
+              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get("numAuSignals"), columnValueSelectors);
               builder.addEntry(
                   new EventHolder(
                       segmentId,

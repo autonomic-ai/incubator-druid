@@ -99,6 +99,6 @@ public interface GroupByStrategy
   Sequence<Row> process(
       GroupByQuery query,
       StorageAdapter storageAdapter,
-      Map<String, Object> responseContextnumAuSignals
+      Map<String, Object> responseContext
   );
 }

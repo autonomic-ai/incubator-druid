@@ -188,8 +188,7 @@ public class QueryResource implements QueryCountStatsProvider
       if (!authResult.isAllowed()) {
         throw new ForbiddenException(authResult.toString());
       }
-      AtomicLong numAuSignals = new AtomicLong(0);
-      final QueryLifecycle.QueryResponse queryResponse = queryLifecycle.execute(numAuSignals);
+      final QueryLifecycle.QueryResponse queryResponse = queryLifecycle.execute();
       final Sequence<?> results = queryResponse.getResults();
       final Map<String, Object> responseContext = queryResponse.getResponseContext();
       final String prevEtag = getPreviousEtag(req);
