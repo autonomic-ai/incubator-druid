@@ -91,7 +91,6 @@ public class DirectDruidClient<T> implements QueryRunner<T>
   public static final String QUERY_FAIL_TIME = "queryFailTime";
   public static final String QUERY_TOTAL_BYTES_GATHERED = "queryTotalBytesGathered";
 
-
   private static final Logger log = new Logger(DirectDruidClient.class);
 
   private static final Map<Class<? extends Query>, Pair<JavaType, JavaType>> typesMap = new ConcurrentHashMap<>();
@@ -276,7 +275,6 @@ public class DirectDruidClient<T> implements QueryRunner<T>
                   )
               );
             }
-            ((AtomicLong) context.get(UsageUtils.NUM_AU_SIGNALS)).get();
             continueReading = enqueue(response.getContent(), 0L);
           }
           catch (final IOException e) {

@@ -28,7 +28,6 @@ import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.ColumnSelectorPlus;
 import org.apache.druid.query.QueryRunnerHelper;
 import org.apache.druid.query.Result;
@@ -247,7 +246,6 @@ public class SelectQueryEngine
                 query.getPagingSpec(),
                 query.isDescending()
             );
-            Logger log = new Logger(this.getClass());
             final BaseLongColumnValueSelector timestampColumnSelector =
                 cursor.getColumnSelectorFactory().makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
 
