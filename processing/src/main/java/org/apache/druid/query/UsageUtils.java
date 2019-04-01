@@ -40,11 +40,22 @@ public class UsageUtils
   public static final String NUM_AU_SIGNALS = "numAuSignals";
   public static final String AU_SIGNALS = "X-Druid-Au-Signals";
 
+  /**
+   * Make {@link ColumnValueSelector} for all columns involved in query
+   * @param dimensionSpecs Dimsions of query, can be null for some kinds of query
+   * @param virtualColumns VirtualColumns of query
+   * @param dimFilter Filters of query
+   * @param aggregatorFactories Aggregator of query, can be null for some kinds of query
+   * @param columns columns of query, it names metrics in Select and columns in Scan,
+   *                can be null for some kinds of query
+   * @param cursor Cursor of segment
+   * @return List of {@link ColumnValueSelector} for all columns involved in query
+   */
   public static List<ColumnValueSelector> makeRequiredSelectors(
       @Nullable List<DimensionSpec> dimensionSpecs,
       VirtualColumns virtualColumns,
       DimFilter dimFilter,
-      List<AggregatorFactory> aggregatorFactories,
+      @Nullable List<AggregatorFactory> aggregatorFactories,
       @Nullable List<String> columns,
       Cursor cursor
   )

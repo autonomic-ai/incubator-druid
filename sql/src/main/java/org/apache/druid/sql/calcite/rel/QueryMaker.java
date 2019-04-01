@@ -226,7 +226,6 @@ public class QueryMaker
 
                 morePages.set(false);
                 final AtomicBoolean gotResult = new AtomicBoolean();
-                final AtomicLong numAuSignals = new AtomicLong(0);
 
                 return Sequences.concat(
                     Sequences.map(
@@ -242,8 +241,6 @@ public class QueryMaker
 
                             pagingIdentifiers.set(result.getValue().getPagingIdentifiers());
                             final List<Object[]> retVals = new ArrayList<>();
-                            numAuSignals.addAndGet(result.getValue().getEvents().size() *
-                                                   result.getValue().getMetrics().size());
                             for (EventHolder holder : result.getValue().getEvents()) {
                               morePages.set(true);
                               final Map<String, Object> map = holder.getEvent();
