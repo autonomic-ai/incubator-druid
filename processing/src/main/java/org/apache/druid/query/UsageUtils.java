@@ -53,7 +53,7 @@ public class UsageUtils
    */
   public static List<ColumnValueSelector> makeRequiredSelectors(
       @Nullable List<DimensionSpec> dimensionSpecs,
-      VirtualColumns virtualColumns,
+      @Nullable VirtualColumns virtualColumns,
       @Nullable DimFilter dimFilter,
       @Nullable List<AggregatorFactory> aggregatorFactories,
       @Nullable List<String> columns,

@@ -306,8 +306,6 @@ public class GroupByQueryEngineV2
       this.keySerde = new GroupByEngineKeySerde(dims);
       this.dims = dims;
       this.numAuSignals = (AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS);
-
-
       
       this.columnValueSelectors = UsageUtils.makeRequiredSelectors(
           query.getDimensions(),
