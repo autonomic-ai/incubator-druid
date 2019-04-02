@@ -159,14 +159,12 @@ public class QueryMaker
       columnMapping[i] = index == null ? -1 : index;
     }
 
-    AtomicLong numAuSignals = new AtomicLong(0);
     return Sequences.concat(
         Sequences.map(
-            runQuery(query, numAuSignals),
+            runQuery(query),
             scanResult -> {
               final List<Object[]> retVals = new ArrayList<>();
               final List<List<Object>> rows = (List<List<Object>>) scanResult.getEvents();
-              numAuSignals.addAndGet(rows.size() * scanResult.getColumns().size());
               for (List<Object> row : rows) {
                 final Object[] retVal = new Object[fieldList.size()];
                 for (RelDataTypeField field : fieldList) {
@@ -228,11 +226,10 @@ public class QueryMaker
 
                 morePages.set(false);
                 final AtomicBoolean gotResult = new AtomicBoolean();
-                final AtomicLong numAuSignals = new AtomicLong(0);
 
                 return Sequences.concat(
                     Sequences.map(
-                        runQuery(queryWithPagination, numAuSignals),
+                        runQuery(queryWithPagination),
                         new Function<Result<SelectResultValue>, Sequence<Object[]>>()
                         {
                           @Override
@@ -244,8 +241,6 @@ public class QueryMaker
 
                             pagingIdentifiers.set(result.getValue().getPagingIdentifiers());
                             final List<Object[]> retVals = new ArrayList<>();
-                            numAuSignals.addAndGet(result.getValue().getEvents().size() *
-                                                   result.getValue().getMetrics().size());
                             for (EventHolder holder : result.getValue().getEvents()) {
                               morePages.set(true);
                               final Map<String, Object> map = holder.getEvent();
@@ -293,11 +288,11 @@ public class QueryMaker
   }
 
   @SuppressWarnings("unchecked")
-  private <T> Sequence<T> runQuery(final Query<T> query, AtomicLong numAuSignals)
+  private <T> Sequence<T> runQuery(final Query<T> query)
   {
     Hook.QUERY_PLAN.run(query);
     final AuthenticationResult authenticationResult = plannerContext.getAuthenticationResult();
-    return queryLifecycleFactory.factorize().runSimple(query, authenticationResult, null, numAuSignals);
+    return queryLifecycleFactory.factorize().runSimple(query, authenticationResult, null);
   }
 
   private Sequence<Object[]> executeTimeseries(
@@ -312,7 +307,7 @@ public class QueryMaker
                                              .getOutputName();
 
     return Sequences.map(
-        runQuery(query, null),
+        runQuery(query),
         new Function<Result<TimeseriesResultValue>, Object[]>()
         {
           @Override
@@ -345,7 +340,7 @@ public class QueryMaker
 
     return Sequences.concat(
         Sequences.map(
-            runQuery(query, null),
+            runQuery(query),
             new Function<Result<TopNResultValue>, Sequence<Object[]>>()
             {
               @Override
@@ -379,7 +374,7 @@ public class QueryMaker
     final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();
 
     return Sequences.map(
-        runQuery(query, null),
+        runQuery(query),
         new Function<Row, Object[]>()
         {
           @Override
@@ -406,7 +401,7 @@ public class QueryMaker
     final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();
 
     return Sequences.map(
-        runQuery(query, null),
+        runQuery(query),
         new Function<Row, Object[]>()
         {
           @Override
@@ -433,7 +428,7 @@ public class QueryMaker
     final List<RelDataTypeField> fieldList = druidQuery.getOutputRowType().getFieldList();
 
     return Sequences.map(
-        runQuery(query, null),
+        runQuery(query),
         new Function<Row, Object[]>()
         {
           @Override

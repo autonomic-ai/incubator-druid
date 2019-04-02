@@ -98,6 +98,7 @@ public interface GroupByStrategy
 
   Sequence<Row> process(
       GroupByQuery query,
-      StorageAdapter storageAdapter
+      StorageAdapter storageAdapter,
+      Map<String, Object> responseContext
   );
 }

@@ -471,9 +471,10 @@ public class GroupByStrategyV2 implements GroupByStrategy
   @Override
   public Sequence<Row> process(
       GroupByQuery query,
-      StorageAdapter storageAdapter
+      StorageAdapter storageAdapter,
+      Map<String, Object> responseContext
   )
   {
-    return GroupByQueryEngineV2.process(query, storageAdapter, bufferPool, configSupplier.get().withOverrides(query));
+    return GroupByQueryEngineV2.process(query, storageAdapter, bufferPool, configSupplier.get().withOverrides(query), responseContext);
   }
 }

@@ -45,6 +45,7 @@ import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;
@@ -188,7 +189,6 @@ public class QueryResource implements QueryCountStatsProvider
       if (!authResult.isAllowed()) {
         throw new ForbiddenException(authResult.toString());
       }
-
       final QueryLifecycle.QueryResponse queryResponse = queryLifecycle.execute();
       final Sequence<?> results = queryResponse.getResults();
       final Map<String, Object> responseContext = queryResponse.getResponseContext();
@@ -231,9 +231,11 @@ public class QueryResource implements QueryCountStatsProvider
                     finally {
                       Thread.currentThread().setName(currThreadName);
 
-                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(),
-                                                        (Long) responseContext.getOrDefault("cost", -1L)
-                      );
+                      /* We don't emit numAuSignals here because this is run inside Historical, MiddleManager,
+                      and also query nodes when the query is issued with native Druid language.
+                      The external language we use is SQL. The numAuSignals are accumulated in SQL layer,
+                      in particular, QueryMaker. */
+                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), 0L);
 
                       if (e == null) {
                         successfulQueryCount.incrementAndGet();
@@ -245,7 +247,9 @@ public class QueryResource implements QueryCountStatsProvider
                 },
                 context.getContentType()
             )
-            .header("X-Druid-Query-Id", queryId);
+            .header("X-Druid-Query-Id", queryId)
+            .header(UsageUtils.AU_SIGNALS, responseContext.getOrDefault(UsageUtils.NUM_AU_SIGNALS, -1L));
+        responseContext.remove(UsageUtils.NUM_AU_SIGNALS);
 
         if (responseContext.get(HEADER_ETAG) != null) {
           builder.header(HEADER_ETAG, responseContext.get(HEADER_ETAG));

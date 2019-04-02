@@ -245,7 +245,8 @@ public class GroupByStrategyV1 implements GroupByStrategy
                         outerQuery.withQuerySegmentSpec(
                             new MultipleIntervalSegmentSpec(ImmutableList.of(interval))
                         ),
-                        new IncrementalIndexStorageAdapter(innerQueryResultIndex)
+                        new IncrementalIndexStorageAdapter(innerQueryResultIndex),
+                        null
                     );
                   }
                 }
@@ -282,7 +283,8 @@ public class GroupByStrategyV1 implements GroupByStrategy
   @Override
   public Sequence<Row> process(
       final GroupByQuery query,
-      final StorageAdapter storageAdapter
+      final StorageAdapter storageAdapter,
+      Map<String, Object> responseContext
   )
   {
     return engine.process(query, storageAdapter);
