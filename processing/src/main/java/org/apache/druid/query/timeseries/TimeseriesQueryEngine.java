@@ -23,21 +23,33 @@ import com.google.common.base.Function;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryRunnerHelper;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.filter.Filter;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.SegmentMissingException;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.filter.Filters;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
 public class TimeseriesQueryEngine
 {
   public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query, final StorageAdapter adapter)
+  {
+    return process(query, adapter, new HashMap<>());
+  }
+
+  public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query,
+                                                         final StorageAdapter adapter,
+                                                         Map<String, Object> responseContext)
   {
     if (adapter == null) {
       throw new SegmentMissingException(
@@ -47,14 +59,17 @@ public class TimeseriesQueryEngine
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getDimensionsFilter()));
     final int limit = query.getLimit();
-    Sequence<Result<TimeseriesResultValue>> result = generateTimeseriesResult(adapter, query, filter);
+    Sequence<Result<TimeseriesResultValue>> result = generateTimeseriesResult(adapter, query, filter, responseContext);
     if (limit < Integer.MAX_VALUE) {
       return result.limit(limit);
     }
     return result;
   }
 
-  private Sequence<Result<TimeseriesResultValue>> generateTimeseriesResult(StorageAdapter adapter, TimeseriesQuery query, Filter filter)
+  private Sequence<Result<TimeseriesResultValue>> generateTimeseriesResult(StorageAdapter adapter,
+                                                                           TimeseriesQuery query,
+                                                                           Filter filter,
+                                                                           Map<String, Object> responseContext)
   {
     return QueryRunnerHelper.makeCursorBasedQuery(
         adapter,
@@ -75,6 +90,15 @@ public class TimeseriesQueryEngine
               return null;
             }
 
+            List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
+                null,
+                query.getVirtualColumns(),
+                query.getFilter(),
+                query.getAggregatorSpecs(),
+                null,
+                cursor
+            );
+
             Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
             String[] aggregatorNames = new String[aggregatorSpecs.size()];
 
@@ -88,6 +112,7 @@ public class TimeseriesQueryEngine
                 for (Aggregator aggregator : aggregators) {
                   aggregator.aggregate();
                 }
+                UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
                 cursor.advance();
               }
               TimeseriesResultBuilder bob = new TimeseriesResultBuilder(cursor.getTime());
