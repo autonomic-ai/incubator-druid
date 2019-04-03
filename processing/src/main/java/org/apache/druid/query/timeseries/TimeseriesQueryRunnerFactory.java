@@ -101,7 +101,7 @@ public class TimeseriesQueryRunnerFactory
         throw new ISE("Got a [%s] which isn't a %s", input.getClass(), TimeseriesQuery.class);
       }
 
-      return engine.process((TimeseriesQuery) input, adapter);
+      return engine.process((TimeseriesQuery) input, adapter, responseContext);
     }
   }
 
