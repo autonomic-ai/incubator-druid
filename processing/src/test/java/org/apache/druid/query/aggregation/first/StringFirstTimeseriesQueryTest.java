@@ -40,6 +40,7 @@ import org.joda.time.DateTime;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 public class StringFirstTimeseriesQueryTest
@@ -108,7 +109,7 @@ public class StringFirstTimeseriesQueryTest
                                   .build();
 
     final Iterable<Result<TimeseriesResultValue>> results =
-        engine.process(query, new IncrementalIndexStorageAdapter(index)).toList();
+        engine.process(query, new IncrementalIndexStorageAdapter(index), new HashMap<>()).toList();
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(

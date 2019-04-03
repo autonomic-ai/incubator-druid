@@ -80,6 +80,10 @@ public class TimeseriesQueryEngine
           @Override
           public Result<TimeseriesResultValue> apply(Cursor cursor)
           {
+            if (skipEmptyBuckets && cursor.isDone()) {
+              return null;
+            }
+
             List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
                 null,
                 query.getVirtualColumns(),
@@ -88,10 +92,6 @@ public class TimeseriesQueryEngine
                 null,
                 cursor
             );
-
-            if (skipEmptyBuckets && cursor.isDone()) {
-              return null;
-            }
 
             Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
             String[] aggregatorNames = new String[aggregatorSpecs.size()];
