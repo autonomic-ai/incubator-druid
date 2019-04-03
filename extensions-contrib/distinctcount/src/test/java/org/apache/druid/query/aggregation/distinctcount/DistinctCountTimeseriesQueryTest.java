@@ -99,7 +99,7 @@ public class DistinctCountTimeseriesQueryTest
                                   .build();
 
     final Iterable<Result<TimeseriesResultValue>> results =
-        engine.process(query, new IncrementalIndexStorageAdapter(index), new HashMap<>()).toList();
+        engine.process(query, new IncrementalIndexStorageAdapter(index)).toList();
 
     List<Result<TimeseriesResultValue>> expectedResults = Collections.singletonList(
         new Result<>(

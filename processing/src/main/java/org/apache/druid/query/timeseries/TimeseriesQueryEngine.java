@@ -33,6 +33,7 @@ import org.apache.druid.segment.SegmentMissingException;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.filter.Filters;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -41,6 +42,23 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TimeseriesQueryEngine
 {
+  public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query, final StorageAdapter adapter)
+  {
+    if (adapter == null) {
+      throw new SegmentMissingException(
+          "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
+      );
+    }
+
+    final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getDimensionsFilter()));
+    final int limit = query.getLimit();
+    Sequence<Result<TimeseriesResultValue>> result = generateTimeseriesResult(adapter, query, filter, new HashMap<>());
+    if (limit < Integer.MAX_VALUE) {
+      return result.limit(limit);
+    }
+    return result;
+  }
+
   public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query,
                                                          final StorageAdapter adapter,
                                                          Map<String, Object> responseContext)
