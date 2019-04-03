@@ -104,6 +104,9 @@ public class UsageUtils
 
   public static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
   {
+    if (numAuSignals == null) {
+      return;
+    }
     int columnInvolved = 0;
     for (ColumnValueSelector columnValueSelector : columnValueSelectors) {
       Object value = columnValueSelector.getObject();
