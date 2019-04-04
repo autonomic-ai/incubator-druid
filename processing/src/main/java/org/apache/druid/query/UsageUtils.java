@@ -124,12 +124,16 @@ public class UsageUtils
       return true;
     }
 
-    if (value instanceof Double
-        || value instanceof Long
-        || value instanceof Integer
-        || value instanceof Short
-        || value instanceof Float) {
+    if (value instanceof Double) {
       return ((double) value) == 0;
+    } else if (value instanceof Float) {
+      return ((float) value) == 0;
+    } else if (value instanceof Long) {
+      return ((long) value) == 0;
+    } else if (value instanceof Integer) {
+      return ((int) value) == 0;
+    } else if (value instanceof Short) {
+      return ((short) value) == 0;
     }
     return false;
   }
