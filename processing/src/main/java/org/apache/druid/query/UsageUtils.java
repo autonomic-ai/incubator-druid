@@ -120,7 +120,7 @@ public class UsageUtils
 
   private static boolean isEmpty(Object value)
   {
-    if (value == null || "".equals(value) || "null".equals(value)) {
+    if (value == null || "".equals(value)) {
       return true;
     }
 
@@ -129,7 +129,7 @@ public class UsageUtils
         || value instanceof Integer
         || value instanceof Short
         || value instanceof Float) {
-      return (double) value == 0;
+      return ((double) value) == 0;
     }
     return false;
   }
