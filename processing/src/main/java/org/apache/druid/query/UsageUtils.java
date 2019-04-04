@@ -110,11 +110,27 @@ public class UsageUtils
     int columnInvolved = 0;
     for (ColumnValueSelector columnValueSelector : columnValueSelectors) {
       Object value = columnValueSelector.getObject();
-      if (value == null || value.equals(0) || "".equals(value)) {
+      if (isEmpty(value)) {
         continue;
       }
       columnInvolved++;
     }
     numAuSignals.addAndGet(columnInvolved);
+  }
+
+  private static boolean isEmpty(Object value)
+  {
+    if (value == null || "".equals(value) || "null".equals(value)) {
+      return true;
+    }
+
+    if (value instanceof Double
+        || value instanceof Long
+        || value instanceof Integer
+        || value instanceof Short
+        || value instanceof Float) {
+      return (double) value == 0;
+    }
+    return false;
   }
 }
