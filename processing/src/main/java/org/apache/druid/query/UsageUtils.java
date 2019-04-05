@@ -124,12 +124,8 @@ public class UsageUtils
       return true;
     }
 
-    if (value instanceof Double
-        || value instanceof Long
-        || value instanceof Integer
-        || value instanceof Short
-        || value instanceof Float) {
-      return ((double) value) == 0;
+    if (value instanceof Number) {
+      return (((Number) value).doubleValue()) == 0;
     }
     return false;
   }
