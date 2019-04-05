@@ -38,6 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import org.apache.druid.data.input.Committer;
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.impl.InputRowParser;
 import org.apache.druid.discovery.DiscoveryDruidNode;
 import org.apache.druid.discovery.DruidNodeDiscoveryProvider;
@@ -68,6 +69,7 @@ import org.apache.druid.segment.realtime.FireDepartment;
 import org.apache.druid.segment.realtime.FireDepartmentMetrics;
 import org.apache.druid.segment.realtime.appenderator.Appenderator;
 import org.apache.druid.segment.realtime.appenderator.AppenderatorDriverAddResult;
+import org.apache.druid.segment.realtime.appenderator.SegmentIdentifier;
 import org.apache.druid.segment.realtime.appenderator.SegmentsAndMetadata;
 import org.apache.druid.segment.realtime.appenderator.StreamAppenderatorDriver;
 import org.apache.druid.segment.realtime.appenderator.TransactionalSegmentPublisher;
@@ -130,6 +132,10 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
   private static final EmittingLogger log = new EmittingLogger(IncrementalPublishingKafkaIndexTaskRunner.class);
   private static final String METADATA_NEXT_PARTITIONS = "nextPartitions";
   private static final String METADATA_PUBLISH_PARTITIONS = "publishPartitions";
+
+  public static final String ASSET_AUI = "asset_aui";
+  public static final String VIN = "vin";
+  public static final String ENVELOPE = "envelope";
 
   private final Map<Integer, Long> endOffsets;
   private final Map<Integer, Long> nextOffsets = new ConcurrentHashMap<>();
@@ -326,6 +332,8 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
       driver = task.newDriver(appenderator, toolbox, fireDepartmentMetrics);
 
       final String topic = ioConfig.getStartPartitions().getTopic();
+
+      int processedAuSignals = 0;
 
       // Start up, set up initial offsets.
       final Object restoredMetadata = driver.startJob();
@@ -545,6 +553,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
                       handleParseException(addResult.getParseException(), record);
                     } else {
                       rowIngestionMeters.incrementProcessed();
+                      processedAuSignals += extractPublishedAuSignals(addResult.getSegmentIdentifier(), row);
                     }
                   } else {
                     rowIngestionMeters.incrementThrownAway();
@@ -659,6 +668,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
 
       // Wait for publish futures to complete.
       Futures.allAsList(publishWaitList).get();
+      recordPublishedAuSignals(processedAuSignals);
 
       // Wait for handoff futures to complete.
       // Note that every publishing task (created by calling AppenderatorDriver.publish()) has a corresponding
@@ -948,6 +958,45 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
         rowIngestionMeters.getTotals()
     );
     return metrics;
+  }
+
+  private int extractPublishedAuSignals(SegmentIdentifier segmentIdentifier, InputRow row)
+  {
+    if (row instanceof MapBasedInputRow) {
+      int processAuSignalsFromRow = numberOfAuSignalsInFabricEnvelopeRow((MapBasedInputRow) row);
+
+      log.info("The number of auSignals processed for segment %s is "
+               + processAuSignalsFromRow, segmentIdentifier);
+      return processAuSignalsFromRow;
+    } else {
+      log.warn("The number of auSignals processed for segment %s "
+               + "will not be recorded for usage.", segmentIdentifier);
+      return 0;
+    }
+  }
+
+  private int numberOfAuSignalsInFabricEnvelopeRow(MapBasedInputRow mapBasedInputRow)
+  {
+    Map<String, Object> rowEvent = mapBasedInputRow.getEvent();
+    int processedAuSignalsFromRow = rowEvent.size();
+
+    // The following keys do not count as signals at the time of this commit.
+    if (rowEvent.containsKey(ASSET_AUI)) {
+      processedAuSignalsFromRow--;
+    }
+    if (rowEvent.containsKey(VIN)) {
+      processedAuSignalsFromRow--;
+    }
+    if (rowEvent.containsKey(ENVELOPE)) {
+      processedAuSignalsFromRow--;
+    }
+    return processedAuSignalsFromRow;
+  }
+
+  private void recordPublishedAuSignals(int processedAuSignals)
+  {
+    log.info(processedAuSignals + " auSignals persisted.");
+    fireDepartmentMetrics.incrementAuSignalsPublishedCount(processedAuSignals);
   }
 
   private void maybePersistAndPublishSequences(Supplier<Committer> committerSupplier)
