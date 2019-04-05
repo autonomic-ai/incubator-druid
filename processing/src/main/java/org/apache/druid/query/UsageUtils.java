@@ -62,6 +62,26 @@ public class UsageUtils
   {
     List<ColumnValueSelector> columnValueSelectors = new ArrayList<>();
 
+
+    for (String requiredColumn : getRequiredColumns(dimensionSpecs, virtualColumns, dimFilter, aggregatorFactories, columns)) {
+      ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
+      if (columnValueSelector instanceof NilColumnValueSelector) {
+        continue;
+      }
+      columnValueSelectors.add(columnValueSelector);
+    }
+
+    return columnValueSelectors;
+  }
+
+  static Set<String> getRequiredColumns(
+      @Nullable List<DimensionSpec> dimensionSpecs,
+      @Nullable VirtualColumns virtualColumns,
+      @Nullable DimFilter dimFilter,
+      @Nullable List<AggregatorFactory> aggregatorFactories,
+      @Nullable List<String> columns
+  )
+  {
     Set<String> requiredColumns = new HashSet<>();
 
     if (aggregatorFactories != null) {
@@ -90,16 +110,7 @@ public class UsageUtils
         requiredColumns.remove(virtualColumn.getOutputName());
       }
     }
-
-    for (String requiredColumn : requiredColumns) {
-      ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
-      if (columnValueSelector instanceof NilColumnValueSelector) {
-        continue;
-      }
-      columnValueSelectors.add(columnValueSelector);
-    }
-
-    return columnValueSelectors;
+    return requiredColumns;
   }
 
   public static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
@@ -110,11 +121,23 @@ public class UsageUtils
     int columnInvolved = 0;
     for (ColumnValueSelector columnValueSelector : columnValueSelectors) {
       Object value = columnValueSelector.getObject();
-      if (value == null || value.equals(0) || "".equals(value)) {
+      if (isEmpty(value)) {
         continue;
       }
       columnInvolved++;
     }
     numAuSignals.addAndGet(columnInvolved);
+  }
+
+  private static boolean isEmpty(Object value)
+  {
+    if (value == null || "".equals(value)) {
+      return true;
+    }
+
+    if (value instanceof Number) {
+      return (((Number) value).intValue()) == 0;
+    }
+    return false;
   }
 }
