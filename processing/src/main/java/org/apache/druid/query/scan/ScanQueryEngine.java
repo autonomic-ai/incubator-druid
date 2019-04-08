@@ -34,7 +34,6 @@ import org.apache.druid.query.QueryInterruptedException;
 import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
-import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumn;
@@ -141,15 +140,6 @@ public class ScanQueryEngine
                       @Override
                       public Iterator<ScanResultValue> make()
                       {
-                        List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
-                            null,
-                            query.getVirtualColumns(),
-                            query.getFilter(),
-                            null,
-                            query.getColumns(),
-                            cursor
-                        );
-
                         final List<BaseObjectColumnValueSelector> columnSelectors = new ArrayList<>(allColumns.size());
 
                         for (String column : allColumns) {
@@ -223,7 +213,7 @@ public class ScanQueryEngine
                               for (int j = 0; j < allColumns.size(); j++) {
                                 theEvent.add(getColumnValue(j));
                               }
-                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
+                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnSelectors);
                               events.add(theEvent);
                             }
                             return events;
@@ -238,7 +228,7 @@ public class ScanQueryEngine
                               for (int j = 0; j < allColumns.size(); j++) {
                                 theEvent.put(allColumns.get(j), getColumnValue(j));
                               }
-                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
+                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnSelectors);
                               events.add(theEvent);
                             }
                             return events;

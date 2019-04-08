@@ -232,14 +232,7 @@ public class SelectQueryEngine
           @Override
           public Result<SelectResultValue> apply(Cursor cursor)
           {
-            List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
-                query.getDimensions(),
-                query.getVirtualColumns(),
-                query.getFilter(),
-                null,
-                query.getMetrics(),
-                cursor
-            );
+            List<BaseObjectColumnValueSelector> columnValueSelectors = new ArrayList<>();
 
             final SelectResultValueBuilder builder = new SelectResultValueBuilder(
                 cursor.getTime(),
@@ -260,12 +253,17 @@ public class SelectQueryEngine
               builder.addDimension(dimSpec.getOutputName());
             }
 
+            for (ColumnSelectorPlus<SelectColumnSelectorStrategy> selectorPlus : selectorPlusList) {
+              columnValueSelectors.add(selectorPlus.getSelector());
+            }
+
             final Map<String, BaseObjectColumnValueSelector<?>> metSelectors = Maps.newHashMap();
             for (String metric : metrics) {
               final BaseObjectColumnValueSelector<?> metricSelector =
                   cursor.getColumnSelectorFactory().makeColumnValueSelector(metric);
               metSelectors.put(metric, metricSelector);
               builder.addMetric(metric);
+              columnValueSelectors.add(metricSelector);
             }
 
             final PagingOffset offset = query.getPagingOffset(segmentId);

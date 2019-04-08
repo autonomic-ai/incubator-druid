@@ -49,6 +49,7 @@ import org.apache.druid.query.groupby.epinephelinae.column.LongGroupByColumnSele
 import org.apache.druid.query.groupby.epinephelinae.column.NullableValueGroupByColumnSelectorStrategy;
 import org.apache.druid.query.groupby.epinephelinae.column.StringGroupByColumnSelectorStrategy;
 import org.apache.druid.query.groupby.strategy.GroupByStrategyV2;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionHandlerUtils;
@@ -284,7 +285,7 @@ public class GroupByQueryEngineV2
     protected final GroupByColumnSelectorPlus[] dims;
     protected final DateTime timestamp;
 
-    protected final List<ColumnValueSelector> columnValueSelectors;
+    protected final List<BaseObjectColumnValueSelector> columnValueSelectors;
     protected CloseableGrouperIterator<KeyType, Row> delegate = null;
     protected final boolean allSingleValueDims;
     protected final AtomicLong numAuSignals;

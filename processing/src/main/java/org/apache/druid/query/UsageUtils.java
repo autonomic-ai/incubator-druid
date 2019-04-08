@@ -22,6 +22,7 @@ package org.apache.druid.query;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.NilColumnValueSelector;
@@ -41,7 +42,7 @@ public class UsageUtils
   public static final String AU_SIGNALS = "X-Druid-Au-Signals";
 
   /**
-   * Make {@link ColumnValueSelector} for all columns involved in query
+   * Make {@link BaseObjectColumnValueSelector} for all columns involved in query
    * @param dimensionSpecs Dimsions of query, can be null for some kinds of query
    * @param virtualColumns VirtualColumns of query
    * @param dimFilter Filters of query
@@ -51,7 +52,7 @@ public class UsageUtils
    * @param cursor Cursor of segment
    * @return List of {@link ColumnValueSelector} for all columns involved in query
    */
-  public static List<ColumnValueSelector> makeRequiredSelectors(
+  public static List<BaseObjectColumnValueSelector> makeRequiredSelectors(
       @Nullable List<DimensionSpec> dimensionSpecs,
       @Nullable VirtualColumns virtualColumns,
       @Nullable DimFilter dimFilter,
@@ -60,7 +61,7 @@ public class UsageUtils
       Cursor cursor
   )
   {
-    List<ColumnValueSelector> columnValueSelectors = new ArrayList<>();
+    List<BaseObjectColumnValueSelector> columnValueSelectors = new ArrayList<>();
 
     Set<String> requiredColumns = new HashSet<>();
 
@@ -92,7 +93,7 @@ public class UsageUtils
     }
 
     for (String requiredColumn : requiredColumns) {
-      ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
+      BaseObjectColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
       if (columnValueSelector instanceof NilColumnValueSelector) {
         continue;
       }
@@ -102,15 +103,14 @@ public class UsageUtils
     return columnValueSelectors;
   }
 
-  public static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
+  public static void incrementAuSignals(AtomicLong numAuSignals, List<BaseObjectColumnValueSelector> columnValueSelectors)
   {
     if (numAuSignals == null) {
       return;
     }
     int columnInvolved = 0;
-    for (ColumnValueSelector columnValueSelector : columnValueSelectors) {
-      Object value = columnValueSelector.getObject();
-      if (isEmpty(value)) {
+    for (BaseObjectColumnValueSelector columnValueSelector : columnValueSelectors) {
+      if (columnValueSelector.isNull() || isEmpty(columnValueSelector.getObject())) {
         continue;
       }
       columnInvolved++;

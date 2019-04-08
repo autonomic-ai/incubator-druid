@@ -27,7 +27,7 @@ import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.segment.ColumnValueSelector;
+import org.apache.druid.segment.BaseObjectColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.SegmentMissingException;
 import org.apache.druid.segment.StorageAdapter;
@@ -90,7 +90,7 @@ public class TimeseriesQueryEngine
               return null;
             }
 
-            List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
+            List<BaseObjectColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
                 null,
                 query.getVirtualColumns(),
                 query.getFilter(),
