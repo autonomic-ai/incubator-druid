@@ -22,6 +22,8 @@ package org.apache.druid.query;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
+import org.apache.druid.query.topn.NumericTopNMetricSpec;
+import org.apache.druid.query.topn.TopNQuery;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.NilColumnValueSelector;
@@ -30,6 +32,7 @@ import org.apache.druid.segment.VirtualColumns;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -102,6 +105,22 @@ public class UsageUtils
     return columnValueSelectors;
   }
 
+  public static List<ColumnValueSelector> makeRequiredSelectorsForTopN(TopNQuery query,
+                                                                       Cursor cursor)
+  {
+    String metric = null;
+    if (query.getTopNMetricSpec() instanceof NumericTopNMetricSpec) {
+      metric = ((NumericTopNMetricSpec) query.getTopNMetricSpec()).getMetric();
+    }
+    return makeRequiredSelectors(
+        Collections.singletonList(query.getDimensionSpec()),
+        query.getVirtualColumns(),
+        query.getDimensionsFilter(),
+        query.getAggregatorSpecs(),
+        metric == null ? null : Collections.singletonList(metric),
+        cursor);
+  }
+
   public static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
   {
     if (numAuSignals == null) {
@@ -118,7 +137,7 @@ public class UsageUtils
     numAuSignals.addAndGet(columnInvolved);
   }
 
-  private static boolean isEmpty(Object value)
+  public static boolean isEmpty(Object value)
   {
     if (value == null || "".equals(value)) {
       return true;
@@ -128,5 +147,30 @@ public class UsageUtils
       return (((Number) value).doubleValue()) == 0;
     }
     return false;
+  }
+
+  public static class UsageHelper
+  {
+    AtomicLong numAuSignals;
+    List<ColumnValueSelector> columnValueSelectors;
+
+    public UsageHelper(
+        AtomicLong numAuSignals,
+        List<ColumnValueSelector> columnValueSelectors
+    )
+    {
+      this.numAuSignals = numAuSignals;
+      this.columnValueSelectors = columnValueSelectors;
+    }
+
+    public AtomicLong getNumAuSignals()
+    {
+      return numAuSignals;
+    }
+
+    public List<ColumnValueSelector> getColumnValueSelectors()
+    {
+      return columnValueSelectors;
+    }
   }
 }

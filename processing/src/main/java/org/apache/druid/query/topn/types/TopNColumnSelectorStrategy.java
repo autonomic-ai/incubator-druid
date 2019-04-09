@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.topn.types;
 
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.dimension.ColumnSelectorStrategy;
 import org.apache.druid.query.topn.TopNParams;
@@ -93,7 +94,8 @@ public interface TopNColumnSelectorStrategy<ValueSelectorType, DimExtractionAggr
       ValueSelectorType selector,
       Cursor cursor,
       Aggregator[][] rowSelector,
-      DimExtractionAggregateStoreType aggregatesStore
+      DimExtractionAggregateStoreType aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   );
 
   /**

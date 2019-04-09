@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.topn;
 
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.BufferAggregator;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
@@ -38,6 +39,7 @@ public interface Generic1AggPooledTopNScanner
       int aggregatorSize,
       Cursor cursor,
       int[] positions,
-      ByteBuffer resultsBuffer
+      ByteBuffer resultsBuffer,
+      UsageUtils.UsageHelper usageHelper
   );
 }

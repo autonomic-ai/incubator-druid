@@ -41,7 +41,9 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  */
@@ -61,6 +63,16 @@ public class TopNQueryEngine
       final @Nullable TopNQueryMetrics queryMetrics
   )
   {
+    return query(query, adapter, queryMetrics, new HashMap<>());
+  }
+
+  public Sequence<Result<TopNResultValue>> query(
+      final TopNQuery query,
+      final StorageAdapter adapter,
+      final @Nullable TopNQueryMetrics queryMetrics,
+      final Map<String, Object> responseContext
+  )
+  {
     if (adapter == null) {
       throw new SegmentMissingException(
           "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
@@ -70,7 +82,7 @@ public class TopNQueryEngine
     final List<Interval> queryIntervals = query.getQuerySegmentSpec().getIntervals();
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getDimensionsFilter()));
     final Granularity granularity = query.getGranularity();
-    final TopNMapFn mapFn = getMapFn(query, adapter, queryMetrics);
+    final TopNMapFn mapFn = getMapFn(query, adapter, queryMetrics, responseContext);
 
     Preconditions.checkArgument(
         queryIntervals.size() == 1, "Can only handle a single interval, got[%s]", queryIntervals
@@ -105,7 +117,8 @@ public class TopNQueryEngine
   private TopNMapFn getMapFn(
       final TopNQuery query,
       final StorageAdapter adapter,
-      final @Nullable TopNQueryMetrics queryMetrics
+      final @Nullable TopNQueryMetrics queryMetrics,
+      final Map<String, Object> responseContext
   )
   {
     final String dimension = query.getDimensionSpec().getDimension();
@@ -135,23 +148,23 @@ public class TopNQueryEngine
         ) {
       // A special TimeExtractionTopNAlgorithm is required, since DimExtractionTopNAlgorithm
       // currently relies on the dimension cardinality to support lexicographic sorting
-      topNAlgorithm = new TimeExtractionTopNAlgorithm(adapter, query);
+      topNAlgorithm = new TimeExtractionTopNAlgorithm(adapter, query, responseContext);
     } else if (selector.isHasExtractionFn()) {
-      topNAlgorithm = new DimExtractionTopNAlgorithm(adapter, query);
+      topNAlgorithm = new DimExtractionTopNAlgorithm(adapter, query, responseContext);
     } else if (columnCapabilities != null && !(columnCapabilities.getType() == ValueType.STRING
                                                && columnCapabilities.isDictionaryEncoded())) {
       // Use DimExtraction for non-Strings and for non-dictionary-encoded Strings.
-      topNAlgorithm = new DimExtractionTopNAlgorithm(adapter, query);
+      topNAlgorithm = new DimExtractionTopNAlgorithm(adapter, query, responseContext);
     } else if (query.getDimensionSpec().getOutputType() != ValueType.STRING) {
       // Use DimExtraction when the dimension output type is a non-String. (It's like an extractionFn: there can be
       // a many-to-one mapping, since numeric types can't represent all possible values of other types.)
-      topNAlgorithm = new DimExtractionTopNAlgorithm(adapter, query);
+      topNAlgorithm = new DimExtractionTopNAlgorithm(adapter, query, responseContext);
     } else if (selector.isAggregateAllMetrics()) {
-      topNAlgorithm = new PooledTopNAlgorithm(adapter, query, bufferPool);
+      topNAlgorithm = new PooledTopNAlgorithm(adapter, query, bufferPool, responseContext);
     } else if (selector.isAggregateTopNMetricFirst() || query.getContextBoolean("doAggregateTopNMetricFirst", false)) {
-      topNAlgorithm = new AggregateTopNMetricFirstAlgorithm(adapter, query, bufferPool);
+      topNAlgorithm = new AggregateTopNMetricFirstAlgorithm(adapter, query, bufferPool, responseContext);
     } else {
-      topNAlgorithm = new PooledTopNAlgorithm(adapter, query, bufferPool);
+      topNAlgorithm = new PooledTopNAlgorithm(adapter, query, bufferPool, responseContext);
     }
     if (queryMetrics != null) {
       queryMetrics.algorithm(topNAlgorithm);

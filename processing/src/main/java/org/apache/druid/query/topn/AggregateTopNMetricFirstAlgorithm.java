@@ -23,9 +23,11 @@ import org.apache.druid.collections.NonBlockingPool;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.query.ColumnSelectorPlus;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.AggregatorUtil;
 import org.apache.druid.query.aggregation.PostAggregator;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.StorageAdapter;
 
@@ -34,6 +36,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -42,16 +46,19 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
   private final StorageAdapter storageAdapter;
   private final TopNQuery query;
   private final NonBlockingPool<ByteBuffer> bufferPool;
+  private final Map<String, Object> responseContext;
 
   public AggregateTopNMetricFirstAlgorithm(
       StorageAdapter storageAdapter,
       TopNQuery query,
-      NonBlockingPool<ByteBuffer> bufferPool
+      NonBlockingPool<ByteBuffer> bufferPool,
+      Map<String, Object> responseContext
   )
   {
     this.storageAdapter = storageAdapter;
     this.query = query;
     this.bufferPool = bufferPool;
+    this.responseContext = responseContext;
   }
 
   @Override
@@ -59,10 +66,13 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
       ColumnSelectorPlus selectorPlus, Cursor cursor
   )
   {
+    List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectorsForTopN(query, cursor);
     return new TopNParams(
         selectorPlus,
         cursor,
-        Integer.MAX_VALUE
+        Integer.MAX_VALUE,
+        new UsageUtils.UsageHelper((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS),
+                                   columnValueSelectors)
     );
   }
 

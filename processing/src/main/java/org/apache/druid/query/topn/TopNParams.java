@@ -20,6 +20,7 @@
 package org.apache.druid.query.topn;
 
 import org.apache.druid.query.ColumnSelectorPlus;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.topn.types.TopNColumnSelectorStrategy;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
@@ -32,17 +33,20 @@ public class TopNParams
   private final int cardinality;
   private final int numValuesPerPass;
   private final ColumnSelectorPlus<TopNColumnSelectorStrategy> selectorPlus;
+  private final UsageUtils.UsageHelper usageHelper;
 
   protected TopNParams(
       ColumnSelectorPlus<TopNColumnSelectorStrategy> selectorPlus,
       Cursor cursor,
-      int numValuesPerPass
+      int numValuesPerPass,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     this.selectorPlus = selectorPlus;
     this.cursor = cursor;
     this.cardinality = selectorPlus.getColumnSelectorStrategy().getCardinality(selectorPlus.getSelector());
     this.numValuesPerPass = numValuesPerPass;
+    this.usageHelper = usageHelper;
   }
 
   // Only used by TopN algorithms that support String exclusively
@@ -70,5 +74,10 @@ public class TopNParams
   public int getNumValuesPerPass()
   {
     return numValuesPerPass;
+  }
+
+  public UsageUtils.UsageHelper getUsageHelper()
+  {
+    return usageHelper;
   }
 }

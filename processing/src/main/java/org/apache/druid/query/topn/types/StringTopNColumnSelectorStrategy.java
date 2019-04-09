@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.topn.types;
 
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.topn.BaseTopNAlgorithm;
 import org.apache.druid.query.topn.TopNParams;
@@ -84,13 +85,14 @@ public class StringTopNColumnSelectorStrategy
       DimensionSelector selector,
       Cursor cursor,
       Aggregator[][] rowSelector,
-      Map<Comparable<?>, Aggregator[]> aggregatesStore
+      Map<Comparable<?>, Aggregator[]> aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     if (selector.getValueCardinality() != DimensionSelector.CARDINALITY_UNKNOWN) {
-      return dimExtractionScanAndAggregateWithCardinalityKnown(query, cursor, selector, rowSelector, aggregatesStore);
+      return dimExtractionScanAndAggregateWithCardinalityKnown(query, cursor, selector, rowSelector, aggregatesStore, usageHelper);
     } else {
-      return dimExtractionScanAndAggregateWithCardinalityUnknown(query, cursor, selector, aggregatesStore);
+      return dimExtractionScanAndAggregateWithCardinalityUnknown(query, cursor, selector, aggregatesStore, usageHelper);
     }
   }
 
@@ -119,7 +121,8 @@ public class StringTopNColumnSelectorStrategy
       Cursor cursor,
       DimensionSelector selector,
       Aggregator[][] rowSelector,
-      Map<Comparable<?>, Aggregator[]> aggregatesStore
+      Map<Comparable<?>, Aggregator[]> aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     long processedRows = 0;
@@ -142,6 +145,8 @@ public class StringTopNColumnSelectorStrategy
           aggregator.aggregate();
         }
       }
+
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advance();
       processedRows++;
     }
@@ -152,7 +157,8 @@ public class StringTopNColumnSelectorStrategy
       TopNQuery query,
       Cursor cursor,
       DimensionSelector selector,
-      Map<Comparable<?>, Aggregator[]> aggregatesStore
+      Map<Comparable<?>, Aggregator[]> aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     long processedRows = 0;
@@ -171,6 +177,8 @@ public class StringTopNColumnSelectorStrategy
           aggregator.aggregate();
         }
       }
+
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advance();
       processedRows++;
     }

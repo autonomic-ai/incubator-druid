@@ -27,11 +27,13 @@ import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.guava.CloseQuietly;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.ColumnSelectorPlus;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.BufferAggregator;
 import org.apache.druid.query.aggregation.SimpleDoubleBufferAggregator;
 import org.apache.druid.query.monomorphicprocessing.SpecializationService;
 import org.apache.druid.query.monomorphicprocessing.SpecializationState;
 import org.apache.druid.query.monomorphicprocessing.StringRuntimeShape;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.FilteredOffset;
@@ -46,7 +48,10 @@ import org.apache.druid.segment.historical.SingleValueHistoricalDimensionSelecto
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -195,6 +200,7 @@ public class PooledTopNAlgorithm
 
   private final TopNQuery query;
   private final NonBlockingPool<ByteBuffer> bufferPool;
+  private final Map<String, Object> responseContext;
   private static final int AGG_UNROLL_COUNT = 8; // Must be able to fit loop below
 
   public PooledTopNAlgorithm(
@@ -203,9 +209,20 @@ public class PooledTopNAlgorithm
       NonBlockingPool<ByteBuffer> bufferPool
   )
   {
+    this(storageAdapter, query, bufferPool, new HashMap<>());
+  }
+
+  public PooledTopNAlgorithm(
+      StorageAdapter storageAdapter,
+      TopNQuery query,
+      NonBlockingPool<ByteBuffer> bufferPool,
+      Map<String, Object> responseContext
+  )
+  {
     super(storageAdapter);
     this.query = query;
     this.bufferPool = bufferPool;
+    this.responseContext = responseContext;
   }
 
   @Override
@@ -223,6 +240,8 @@ public class PooledTopNAlgorithm
     if (cardinality < 0) {
       throw new UnsupportedOperationException("Cannot operate on a dimension with no dictionary");
     }
+
+    List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectorsForTopN(query, cursor);
 
     final TopNMetricSpecBuilder<int[]> arrayProvider = new BaseArrayProvider<int[]>(
         dimSelector,
@@ -258,6 +277,10 @@ public class PooledTopNAlgorithm
 
     return PooledTopNParams.builder()
                            .withSelectorPlus(selectorPlus)
+                           .withUsageHelper(new UsageUtils.UsageHelper(
+                               (AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS),
+                               columnValueSelectors
+                           ))
                            .withCursor(cursor)
                            .withResultsBufHolder(resultsBufHolder)
                            .withResultsBuf(resultsBuf)
@@ -360,7 +383,8 @@ public class PooledTopNAlgorithm
         params.getAggregatorSizes()[0],
         cursor,
         positions,
-        params.getResultsBuf()
+        params.getResultsBuf(),
+        params.getUsageHelper()
     );
     specializationState.accountLoopIterations(processedRows);
     return processedRows;
@@ -384,7 +408,8 @@ public class PooledTopNAlgorithm
         params.getAggregatorSizes()[0],
         cursor,
         positions,
-        params.getResultsBuf()
+        params.getResultsBuf(),
+        params.getUsageHelper()
     );
     specializationState.accountLoopIterations(processedRows);
     return processedRows;
@@ -411,7 +436,8 @@ public class PooledTopNAlgorithm
         aggregatorSizes[1],
         cursor,
         positions,
-        params.getResultsBuf()
+        params.getResultsBuf(),
+        params.getUsageHelper()
     );
     specializationState.accountLoopIterations(processedRows);
     return processedRows;
@@ -461,6 +487,7 @@ public class PooledTopNAlgorithm
     final int aggExtra = aggSize % AGG_UNROLL_COUNT;
     int currentPosition = 0;
     long processedRows = 0;
+    UsageUtils.UsageHelper usageHelper = params.getUsageHelper();
     while (!cursor.isDoneOrInterrupted()) {
       final IndexedInts dimValues = dimSelector.getRow();
 
@@ -648,6 +675,7 @@ public class PooledTopNAlgorithm
             currentPosition
         );
       }
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advanceUninterruptibly();
       processedRows++;
     }
@@ -786,10 +814,11 @@ public class PooledTopNAlgorithm
         int[] aggregatorSizes,
         int numBytesPerRecord,
         int numValuesPerPass,
-        TopNMetricSpecBuilder<int[]> arrayProvider
+        TopNMetricSpecBuilder<int[]> arrayProvider,
+        UsageUtils.UsageHelper usageHelper
     )
     {
-      super(selectorPlus, cursor, numValuesPerPass);
+      super(selectorPlus, cursor, numValuesPerPass, usageHelper);
 
       this.resultsBufHolder = resultsBufHolder;
       this.resultsBuf = resultsBuf;
@@ -838,10 +867,17 @@ public class PooledTopNAlgorithm
       private int numBytesPerRecord;
       private int numValuesPerPass;
       private TopNMetricSpecBuilder<int[]> arrayProvider;
+      private UsageUtils.UsageHelper usageHelper;
 
       public Builder withSelectorPlus(ColumnSelectorPlus selectorPlus)
       {
         this.selectorPlus = selectorPlus;
+        return this;
+      }
+
+      public Builder withUsageHelper(UsageUtils.UsageHelper usageHelper)
+      {
+        this.usageHelper = usageHelper;
         return this;
       }
 
@@ -897,7 +933,8 @@ public class PooledTopNAlgorithm
             aggregatorSizes,
             numBytesPerRecord,
             numValuesPerPass,
-            arrayProvider
+            arrayProvider,
+            usageHelper
         );
       }
     }

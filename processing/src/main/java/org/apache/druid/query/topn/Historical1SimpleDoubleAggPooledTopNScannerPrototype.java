@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.topn;
 
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.SimpleDoubleBufferAggregator;
 import org.apache.druid.segment.data.IndexedInts;
 import org.apache.druid.segment.data.Offset;
@@ -55,7 +56,8 @@ public class Historical1SimpleDoubleAggPooledTopNScannerPrototype
       int aggregatorSize,
       HistoricalCursor cursor,
       int[] positions,
-      ByteBuffer resultsBuffer
+      ByteBuffer resultsBuffer,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     // See TopNUtils.copyOffset() for explanation
@@ -79,6 +81,8 @@ public class Historical1SimpleDoubleAggPooledTopNScannerPrototype
         }
       }
       processedRows++;
+
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       offset.increment();
     }
     return processedRows;

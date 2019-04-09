@@ -20,12 +20,16 @@
 package org.apache.druid.query.topn;
 
 import org.apache.druid.query.ColumnSelectorPlus;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.topn.types.TopNColumnSelectorStrategy;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.StorageAdapter;
 
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This has to be its own strategy because the pooled topn algorithm assumes each index is unique, and cannot handle multiple index numerals referencing the same dimension value.
@@ -34,15 +38,18 @@ public class DimExtractionTopNAlgorithm
     extends BaseTopNAlgorithm<Aggregator[][], Map<Comparable, Aggregator[]>, TopNParams>
 {
   private final TopNQuery query;
+  private final Map<String, Object> responseContext;
 
   public DimExtractionTopNAlgorithm(
       StorageAdapter storageAdapter,
-      TopNQuery query
+      TopNQuery query,
+      Map<String, Object> responseContext
   )
   {
     super(storageAdapter);
 
     this.query = query;
+    this.responseContext = responseContext;
   }
 
   @Override
@@ -51,10 +58,13 @@ public class DimExtractionTopNAlgorithm
       final Cursor cursor
   )
   {
+    List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectorsForTopN(query, cursor);
     return new TopNParams(
         selectorPlus,
         cursor,
-        Integer.MAX_VALUE
+        Integer.MAX_VALUE,
+        new UsageUtils.UsageHelper((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS),
+                                   columnValueSelectors)
     );
   }
 
@@ -96,7 +106,8 @@ public class DimExtractionTopNAlgorithm
         selectorPlus.getSelector(),
         cursor,
         rowSelector,
-        aggregatesStore
+        aggregatesStore,
+        params.getUsageHelper()
     );
   }
 

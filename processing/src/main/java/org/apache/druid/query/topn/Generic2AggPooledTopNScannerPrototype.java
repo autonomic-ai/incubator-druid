@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.topn;
 
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.BufferAggregator;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
@@ -49,7 +50,8 @@ public final class Generic2AggPooledTopNScannerPrototype implements Generic2AggP
       int aggregator2Size,
       Cursor cursor,
       int[] positions,
-      ByteBuffer resultsBuffer
+      ByteBuffer resultsBuffer,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     int totalAggregatorsSize = aggregator1Size + aggregator2Size;
@@ -76,6 +78,7 @@ public final class Generic2AggPooledTopNScannerPrototype implements Generic2AggP
         }
       }
       processedRows++;
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advanceUninterruptibly();
     }
     return processedRows;

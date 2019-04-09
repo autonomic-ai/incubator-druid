@@ -19,6 +19,7 @@
 
 package org.apache.druid.query.topn;
 
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.SimpleDoubleBufferAggregator;
 import org.apache.druid.segment.data.Offset;
 import org.apache.druid.segment.historical.HistoricalColumnSelector;
@@ -55,7 +56,8 @@ public class HistoricalSingleValueDimSelector1SimpleDoubleAggPooledTopNScannerPr
       int aggregatorSize,
       HistoricalCursor cursor,
       int[] positions,
-      ByteBuffer resultsBuffer
+      ByteBuffer resultsBuffer,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     // See TopNUtils.copyOffset() for explanation
@@ -66,14 +68,16 @@ public class HistoricalSingleValueDimSelector1SimpleDoubleAggPooledTopNScannerPr
       int rowNum = offset.getOffset();
       int dimIndex = dimensionSelector.getRowValue(rowNum);
       int position = positions[dimIndex];
+      double metric = metricSelector.getDouble(rowNum);
       if (position >= 0) {
-        aggregator.aggregate(resultsBuffer, position, metricSelector.getDouble(rowNum));
+        aggregator.aggregate(resultsBuffer, position, metric);
       } else if (position == TopNAlgorithm.INIT_POSITION_VALUE) {
         positions[dimIndex] = positionToAllocate;
-        aggregator.putFirst(resultsBuffer, positionToAllocate, metricSelector.getDouble(rowNum));
+        aggregator.putFirst(resultsBuffer, positionToAllocate, metric);
         positionToAllocate += aggregatorSize;
       }
       processedRows++;
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       offset.increment();
     }
     return processedRows;

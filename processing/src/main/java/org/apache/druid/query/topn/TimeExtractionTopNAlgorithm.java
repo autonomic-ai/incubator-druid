@@ -21,32 +21,51 @@ package org.apache.druid.query.topn;
 
 import com.google.common.collect.Maps;
 import org.apache.druid.query.ColumnSelectorPlus;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
+import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionSelector;
 import org.apache.druid.segment.StorageAdapter;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TimeExtractionTopNAlgorithm extends BaseTopNAlgorithm<int[], Map<String, Aggregator[]>, TopNParams>
 {
   public static final int[] EMPTY_INTS = new int[]{};
   private final TopNQuery query;
+  private final Map<String, Object> responseContext;
 
-  public TimeExtractionTopNAlgorithm(StorageAdapter storageAdapter, TopNQuery query)
+  public TimeExtractionTopNAlgorithm(StorageAdapter storageAdapter,
+                                     TopNQuery query,
+                                     Map<String, Object> responseContext)
   {
     super(storageAdapter);
     this.query = query;
+    this.responseContext = responseContext;
   }
-
 
   @Override
   public TopNParams makeInitParams(ColumnSelectorPlus selectorPlus, Cursor cursor)
   {
+    List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
+        Collections.singletonList(query.getDimensionSpec()),
+        query.getVirtualColumns(),
+        query.getDimensionsFilter(),
+        query.getAggregatorSpecs(),
+        null,
+        cursor
+    );
     return new TopNParams(
         selectorPlus,
         cursor,
-        Integer.MAX_VALUE
+        Integer.MAX_VALUE,
+        new UsageUtils.UsageHelper((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS),
+                                   columnValueSelectors)
+
     );
   }
 
@@ -94,6 +113,8 @@ public class TimeExtractionTopNAlgorithm extends BaseTopNAlgorithm<int[], Map<St
         aggregator.aggregate();
       }
 
+      UsageUtils.incrementAuSignals(params.getUsageHelper().getNumAuSignals(),
+                                    params.getUsageHelper().getColumnValueSelectors());
       cursor.advance();
       processedRows++;
     }

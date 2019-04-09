@@ -24,6 +24,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.apache.druid.java.util.common.IAE;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.topn.BaseTopNAlgorithm;
 import org.apache.druid.query.topn.TopNParams;
@@ -82,7 +83,8 @@ public abstract class NumericTopNColumnSelectorStrategy<
       TopNQuery query,
       BaseFloatColumnValueSelector selector,
       Cursor cursor,
-      Int2ObjectMap<Aggregator[]> aggregatesStore
+      Int2ObjectMap<Aggregator[]> aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     long processedRows = 0;
@@ -96,6 +98,8 @@ public abstract class NumericTopNColumnSelectorStrategy<
       for (Aggregator aggregator : theAggregators) {
         aggregator.aggregate();
       }
+
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advance();
       processedRows++;
     }
@@ -106,7 +110,8 @@ public abstract class NumericTopNColumnSelectorStrategy<
       TopNQuery query,
       BaseDoubleColumnValueSelector selector,
       Cursor cursor,
-      Long2ObjectMap<Aggregator[]> aggregatesStore
+      Long2ObjectMap<Aggregator[]> aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     long processedRows = 0;
@@ -120,6 +125,8 @@ public abstract class NumericTopNColumnSelectorStrategy<
       for (Aggregator aggregator : theAggregators) {
         aggregator.aggregate();
       }
+
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advance();
       processedRows++;
     }
@@ -130,7 +137,8 @@ public abstract class NumericTopNColumnSelectorStrategy<
       TopNQuery query,
       BaseLongColumnValueSelector selector,
       Cursor cursor,
-      Long2ObjectMap<Aggregator[]> aggregatesStore
+      Long2ObjectMap<Aggregator[]> aggregatesStore,
+      UsageUtils.UsageHelper usageHelper
   )
   {
     long processedRows = 0;
@@ -144,6 +152,8 @@ public abstract class NumericTopNColumnSelectorStrategy<
       for (Aggregator aggregator : theAggregators) {
         aggregator.aggregate();
       }
+
+      UsageUtils.incrementAuSignals(usageHelper.getNumAuSignals(), usageHelper.getColumnValueSelectors());
       cursor.advance();
       processedRows++;
     }
@@ -200,10 +210,11 @@ public abstract class NumericTopNColumnSelectorStrategy<
         BaseFloatColumnValueSelector selector,
         Cursor cursor,
         Aggregator[][] rowSelector,
-        Int2ObjectMap<Aggregator[]> aggregatesStore
+        Int2ObjectMap<Aggregator[]> aggregatesStore,
+        UsageUtils.UsageHelper usageHelper
     )
     {
-      return floatDimExtractionScanAndAggregate(query, selector, cursor, aggregatesStore);
+      return floatDimExtractionScanAndAggregate(query, selector, cursor, aggregatesStore, usageHelper);
     }
   }
 
@@ -235,10 +246,11 @@ public abstract class NumericTopNColumnSelectorStrategy<
         BaseLongColumnValueSelector selector,
         Cursor cursor,
         Aggregator[][] rowSelector,
-        Long2ObjectMap<Aggregator[]> aggregatesStore
+        Long2ObjectMap<Aggregator[]> aggregatesStore,
+        UsageUtils.UsageHelper usageHelper
     )
     {
-      return longDimExtractionScanAndAggregate(query, selector, cursor, aggregatesStore);
+      return longDimExtractionScanAndAggregate(query, selector, cursor, aggregatesStore, usageHelper);
     }
   }
 
@@ -270,10 +282,11 @@ public abstract class NumericTopNColumnSelectorStrategy<
         BaseDoubleColumnValueSelector selector,
         Cursor cursor,
         Aggregator[][] rowSelector,
-        Long2ObjectMap<Aggregator[]> aggregatesStore
+        Long2ObjectMap<Aggregator[]> aggregatesStore,
+        UsageUtils.UsageHelper usageHelper
     )
     {
-      return doubleDimExtractionScanAndAggregate(query, selector, cursor, aggregatesStore);
+      return doubleDimExtractionScanAndAggregate(query, selector, cursor, aggregatesStore, usageHelper);
     }
   }
 }
