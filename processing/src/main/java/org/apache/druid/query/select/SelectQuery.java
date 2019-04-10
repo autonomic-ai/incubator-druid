@@ -30,6 +30,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -38,6 +39,7 @@ import org.apache.druid.segment.VirtualColumns;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -49,6 +51,8 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
   private final List<String> metrics;
   private final VirtualColumns virtualColumns;
   private final PagingSpec pagingSpec;
+
+  private final UsageUtils.UsageCollector usageCollector;
 
   @JsonCreator
   public SelectQuery(
@@ -64,12 +68,54 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
       @JsonProperty("context") Map<String, Object> context
   )
   {
+    this(
+        dataSource,
+        querySegmentSpec,
+        descending,
+        dimFilter,
+        granularity,
+        dimensions,
+        metrics,
+        virtualColumns,
+        pagingSpec,
+        context,
+        null
+    );
+  }
+
+  public SelectQuery(
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      final boolean descending,
+      final DimFilter dimFilter,
+      final Granularity granularity,
+      final List<DimensionSpec> dimensions,
+      final List<String> metrics,
+      final VirtualColumns virtualColumns,
+      final PagingSpec pagingSpec,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
     super(dataSource, querySegmentSpec, descending, context, Granularities.nullToAll(granularity));
     this.dimFilter = dimFilter;
     this.dimensions = dimensions;
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
     this.metrics = metrics;
     this.pagingSpec = pagingSpec;
+
+    if (usageCollector == null) {
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          dimensions,
+          virtualColumns,
+          dimFilter,
+          null,
+          metrics
+      );
+    } else {
+      this.usageCollector = usageCollector;
+    }
 
     Preconditions.checkNotNull(pagingSpec, "must specify a pagingSpec");
     Preconditions.checkArgument(checkPagingSpec(pagingSpec, descending), "invalid pagingSpec");
@@ -165,6 +211,12 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
   public SelectQuery withDimFilter(DimFilter dimFilter)
   {
     return Druids.SelectQueryBuilder.copy(this).filters(dimFilter).build();
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
   }
 
   @Override

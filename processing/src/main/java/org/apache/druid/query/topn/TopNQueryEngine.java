@@ -84,7 +84,8 @@ public class TopNQueryEngine
                 query.getVirtualColumns(),
                 granularity,
                 query.isDescending(),
-                queryMetrics
+                queryMetrics,
+                query.getUsageCollector()
             ),
             new Function<Cursor, Result<TopNResultValue>>()
             {

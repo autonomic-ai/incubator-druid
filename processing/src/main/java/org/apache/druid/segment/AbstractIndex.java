@@ -44,6 +44,7 @@ public abstract class AbstractIndex
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     ).toList();
     List<String> columnNames = new ArrayList<>();

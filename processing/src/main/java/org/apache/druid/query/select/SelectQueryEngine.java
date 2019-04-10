@@ -227,6 +227,7 @@ public class SelectQueryEngine
         query.getVirtualColumns(),
         query.isDescending(),
         query.getGranularity(),
+        query.getUsageCollector(),
         new Function<Cursor, Result<SelectResultValue>>()
         {
           @Override

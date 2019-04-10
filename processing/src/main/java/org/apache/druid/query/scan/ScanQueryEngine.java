@@ -133,7 +133,8 @@ public class ScanQueryEngine
                     query.getVirtualColumns(),
                     Granularities.ALL,
                     query.isDescending(),
-                    null
+                    null,
+                    query.getUsageCollector()
                 )
                 .map(cursor -> new BaseSequence<>(
                     new BaseSequence.IteratorMaker<ScanResultValue, Iterator<ScanResultValue>>()

@@ -78,6 +78,7 @@ public class TimeseriesQueryEngine
         query.getVirtualColumns(),
         query.isDescending(),
         query.getGranularity(),
+        query.getUsageCollector(),
         new Function<Cursor, Result<TimeseriesResultValue>>()
         {
           private final boolean skipEmptyBuckets = query.isSkipEmptyBuckets();

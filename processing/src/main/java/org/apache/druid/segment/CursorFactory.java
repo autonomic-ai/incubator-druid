@@ -22,6 +22,7 @@ package org.apache.druid.segment;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.Filter;
 import org.joda.time.Interval;
 
@@ -37,6 +38,7 @@ public interface CursorFactory
       VirtualColumns virtualColumns,
       Granularity gran,
       boolean descending,
-      @Nullable QueryMetrics<?> queryMetrics
-  );
+      @Nullable QueryMetrics<?> queryMetrics,
+      @Nullable UsageUtils.UsageCollector usageCollector
+      );
 }

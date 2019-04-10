@@ -115,7 +115,8 @@ public class GroupByQueryEngineV2
         query.getVirtualColumns(),
         query.getGranularity(),
         false,
-        null
+        null,
+        query.getUsageCollector()
     );
 
     final boolean allSingleValueDims = query

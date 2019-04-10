@@ -257,6 +257,7 @@ public class DumpSegment extends GuiceRunnable
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
 

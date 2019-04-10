@@ -200,6 +200,7 @@ public class IncrementalIndexReadBenchmark
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
   }
