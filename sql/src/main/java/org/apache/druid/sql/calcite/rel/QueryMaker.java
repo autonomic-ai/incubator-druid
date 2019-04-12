@@ -165,7 +165,6 @@ public class QueryMaker
             scanResult -> {
               final List<Object[]> retVals = new ArrayList<>();
               final List<List<Object>> rows = (List<List<Object>>) scanResult.getEvents();
-
               for (List<Object> row : rows) {
                 final Object[] retVal = new Object[fieldList.size()];
                 for (RelDataTypeField field : fieldList) {

@@ -105,14 +105,14 @@ public class GroupByQueryEngineV2
     if (intervals.size() != 1) {
       throw new IAE("Should only have one interval, got[%s]", intervals);
     }
-
     final Sequence<Cursor> cursors = storageAdapter.makeCursors(
         Filters.toFilter(query.getDimFilter()),
         intervals.get(0),
         query.getVirtualColumns(),
         query.getGranularity(),
         false,
-        null
+        null,
+        query.getUsageCollector()
     );
 
     final boolean allSingleValueDims = query
@@ -281,7 +281,6 @@ public class GroupByQueryEngineV2
 
     protected CloseableGrouperIterator<KeyType, Row> delegate = null;
     protected final boolean allSingleValueDims;
-
     public GroupByEngineIterator(
         final GroupByQuery query,
         final GroupByQueryConfig querySpecificConfig,
@@ -481,7 +480,6 @@ public class GroupByQueryEngineV2
         if (!currentRowWasPartiallyAggregated) {
           // Set up stack, valuess, and first grouping in keyBuffer for this row
           stackPointer = stack.length - 1;
-
           for (int i = 0; i < dims.length; i++) {
             GroupByColumnSelectorStrategy strategy = dims[i].getColumnSelectorStrategy();
             strategy.initColumnValues(
@@ -628,6 +626,7 @@ public class GroupByQueryEngineV2
         } else {
           key = 0;
         }
+
         if (!grouper.aggregate(key).isOk()) {
           return;
         }

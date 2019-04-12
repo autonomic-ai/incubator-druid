@@ -524,6 +524,7 @@ public class IndexTaskTest
           VirtualColumns.EMPTY,
           Granularities.ALL,
           false,
+          null,
           null
       );
       final List<Integer> hashes = cursorSequence

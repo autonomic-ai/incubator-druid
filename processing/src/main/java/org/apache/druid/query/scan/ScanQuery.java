@@ -26,6 +26,7 @@ import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.VirtualColumn;
@@ -35,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ScanQuery extends BaseQuery<ScanResultValue>
 {
@@ -50,6 +52,8 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
   private final List<String> columns;
   private final Boolean legacy;
 
+  private final UsageUtils.UsageCollector usageCollector;
+
   @JsonCreator
   public ScanQuery(
       @JsonProperty("dataSource") DataSource dataSource,
@@ -64,6 +68,34 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
       @JsonProperty("context") Map<String, Object> context
   )
   {
+    this(
+        dataSource,
+        querySegmentSpec,
+        virtualColumns,
+        resultFormat,
+        batchSize,
+        limit,
+        dimFilter,
+        columns,
+        legacy,
+        context,
+        null);
+  }
+
+  private ScanQuery(
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      final VirtualColumns virtualColumns,
+      final String resultFormat,
+      final int batchSize,
+      final long limit,
+      final DimFilter dimFilter,
+      final List<String> columns,
+      final Boolean legacy,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
     super(dataSource, querySegmentSpec, false, context);
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
     this.resultFormat = resultFormat == null ? RESULT_FORMAT_LIST : resultFormat;
@@ -74,6 +106,18 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
     this.dimFilter = dimFilter;
     this.columns = columns;
     this.legacy = legacy;
+
+    if (usageCollector == null) {
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          null,
+          virtualColumns,
+          dimFilter,
+          null,
+          columns);
+    } else {
+      this.usageCollector = usageCollector;
+    }
   }
 
   @JsonProperty
@@ -163,6 +207,12 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
   }
 
   @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
+  }
+
+  @Override
   public boolean equals(final Object o)
   {
     if (this == o) {
@@ -233,6 +283,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
     private DimFilter dimFilter;
     private List<String> columns;
     private Boolean legacy;
+    private UsageUtils.UsageCollector usageCollector;
 
     public ScanQueryBuilder()
     {
@@ -246,6 +297,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
       dimFilter = null;
       columns = Lists.newArrayList();
       legacy = null;
+      usageCollector = null;
     }
 
     public ScanQuery build()
@@ -260,7 +312,8 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
           dimFilter,
           columns,
           legacy,
-          context
+          context,
+          usageCollector
       );
     }
 
@@ -276,7 +329,8 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
           .filters(query.getFilter())
           .columns(query.getColumns())
           .legacy(query.isLegacy())
-          .context(query.getContext());
+          .context(query.getContext())
+          .usageCollector(query.getUsageCollector());
     }
 
     public ScanQueryBuilder dataSource(String ds)
@@ -353,6 +407,12 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
     public ScanQueryBuilder legacy(Boolean legacy)
     {
       this.legacy = legacy;
+      return this;
+    }
+
+    public ScanQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    {
+      this.usageCollector = usageCollector;
       return this;
     }
   }

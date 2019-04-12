@@ -29,6 +29,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.ordering.StringComparators;
@@ -36,6 +37,7 @@ import org.apache.druid.query.spec.QuerySegmentSpec;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -48,6 +50,8 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
   private final List<DimensionSpec> dimensions;
   private final SearchQuerySpec querySpec;
   private final int limit;
+
+  private final UsageUtils.UsageCollector usageCollector;
 
   @JsonCreator
   public SearchQuery(
@@ -62,6 +66,33 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
       @JsonProperty("context") Map<String, Object> context
   )
   {
+    this(
+        dataSource,
+        dimFilter,
+        granularity,
+        limit,
+        querySegmentSpec,
+        dimensions,
+        querySpec,
+        sortSpec,
+        context,
+        null
+    );
+  }
+
+  public SearchQuery(
+      final DataSource dataSource,
+      final DimFilter dimFilter,
+      final Granularity granularity,
+      final int limit,
+      final QuerySegmentSpec querySegmentSpec,
+      final List<DimensionSpec> dimensions,
+      final SearchQuerySpec querySpec,
+      final SearchSortSpec sortSpec,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
     super(dataSource, querySegmentSpec, false, context, Granularities.nullToAll(granularity));
     Preconditions.checkNotNull(querySegmentSpec, "Must specify an interval");
 
@@ -70,6 +101,19 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
     this.limit = (limit == 0) ? 1000 : limit;
     this.dimensions = dimensions;
     this.querySpec = querySpec == null ? new AllSearchQuerySpec() : querySpec;
+
+    if (usageCollector == null) {
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          dimensions,
+          null,
+          dimFilter,
+          null,
+          null
+      );
+    } else {
+      this.usageCollector = usageCollector;
+    }
   }
 
   @Override
@@ -147,6 +191,12 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
   public SearchQuery withLimit(int newLimit)
   {
     return Druids.SearchQueryBuilder.copy(this).limit(newLimit).build();
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
   }
 
   @Override

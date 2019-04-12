@@ -223,6 +223,7 @@ public class SelectQueryEngine
         query.getVirtualColumns(),
         query.isDescending(),
         query.getGranularity(),
+        query.getUsageCollector(),
         new Function<Cursor, Result<SelectResultValue>>()
         {
           @Override
@@ -233,7 +234,6 @@ public class SelectQueryEngine
                 query.getPagingSpec(),
                 query.isDescending()
             );
-
             final BaseLongColumnValueSelector timestampColumnSelector =
                 cursor.getColumnSelectorFactory().makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
 
@@ -244,7 +244,6 @@ public class SelectQueryEngine
                     cursor.getColumnSelectorFactory()
                 )
             );
-
             for (DimensionSpec dimSpec : dims) {
               builder.addDimension(dimSpec.getOutputName());
             }
@@ -269,7 +268,6 @@ public class SelectQueryEngine
                   selectorPlusList,
                   metSelectors
               );
-
               builder.addEntry(
                   new EventHolder(
                       segmentId,

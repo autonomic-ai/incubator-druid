@@ -173,6 +173,12 @@ public class DefaultSearchQueryMetrics implements SearchQueryMetrics
   }
 
   @Override
+  public QueryMetrics reportQueryNumAuSignals(long numAuSignals)
+  {
+    return delegateQueryMetrics.reportQueryNumAuSignals(numAuSignals);
+  }
+
+  @Override
   public QueryMetrics reportWaitTime(long timeNs)
   {
     return delegateQueryMetrics.reportWaitTime(timeNs);

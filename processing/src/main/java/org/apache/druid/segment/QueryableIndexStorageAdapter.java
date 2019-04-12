@@ -33,6 +33,7 @@ import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.column.BaseColumn;
@@ -204,7 +205,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       VirtualColumns virtualColumns,
       Granularity gran,
       boolean descending,
-      @Nullable QueryMetrics<?> queryMetrics
+      @Nullable QueryMetrics<?> queryMetrics,
+      @Nullable UsageUtils.UsageCollector usageCollector
   )
   {
 
@@ -320,7 +322,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
             maxDataTimestamp,
             descending,
             postFilter,
-            selector
+            selector,
+            usageCollector
         ).build(),
         Objects::nonNull
     );
@@ -349,6 +352,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Nullable
     private final Filter postFilter;
     private final ColumnSelectorBitmapIndexSelector bitmapIndexSelector;
+    private final UsageUtils.UsageCollector usageCollector;
 
     public CursorSequenceBuilder(
         QueryableIndexStorageAdapter storageAdapter,
@@ -360,7 +364,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
         long maxDataTimestamp,
         boolean descending,
         @Nullable Filter postFilter,
-        ColumnSelectorBitmapIndexSelector bitmapIndexSelector
+        ColumnSelectorBitmapIndexSelector bitmapIndexSelector,
+        @Nullable UsageUtils.UsageCollector usageCollector
     )
     {
       this.index = storageAdapter.index;
@@ -373,6 +378,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       this.descending = descending;
       this.postFilter = postFilter;
       this.bitmapIndexSelector = bitmapIndexSelector;
+      this.usageCollector = usageCollector;
     }
 
     public Sequence<Cursor> build()
@@ -447,7 +453,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                   final DateTime myBucket = gran.toDateTime(inputInterval.getStartMillis());
 
                   if (postFilter == null) {
-                    return new QueryableIndexCursor(baseCursorOffset, columnSelectorFactory, myBucket);
+                    return new QueryableIndexCursor(baseCursorOffset, columnSelectorFactory, myBucket, usageCollector);
                   } else {
                     FilteredOffset filteredOffset = new FilteredOffset(
                         baseCursorOffset,
@@ -456,7 +462,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                         postFilter,
                         bitmapIndexSelector
                     );
-                    return new QueryableIndexCursor(filteredOffset, columnSelectorFactory, myBucket);
+                    return new QueryableIndexCursor(filteredOffset, columnSelectorFactory, myBucket, usageCollector);
                   }
 
                 }
@@ -472,12 +478,20 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     private final Offset cursorOffset;
     private final ColumnSelectorFactory columnSelectorFactory;
     private final DateTime bucketStart;
+    private final UsageUtils.UsageCollector usageCollector;
 
-    QueryableIndexCursor(Offset cursorOffset, ColumnSelectorFactory columnSelectorFactory, DateTime bucketStart)
+    QueryableIndexCursor(Offset cursorOffset,
+                         ColumnSelectorFactory columnSelectorFactory,
+                         DateTime bucketStart,
+                         UsageUtils.UsageCollector usageCollector)
     {
       this.cursorOffset = cursorOffset;
       this.columnSelectorFactory = columnSelectorFactory;
       this.bucketStart = bucketStart;
+      this.usageCollector = usageCollector;
+      if (usageCollector != null) {
+        this.usageCollector.createSelectors(this);
+      }
     }
 
     @Override
@@ -501,6 +515,9 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Override
     public void advance()
     {
+      if (usageCollector != null) {
+        usageCollector.collect(this);
+      }
       cursorOffset.increment();
       // Must call BaseQuery.checkInterrupted() after cursorOffset.increment(), not before, because
       // FilteredOffset.increment() is a potentially long, not an "instant" operation (unlike to all other subclasses
@@ -529,7 +546,11 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Override
     public boolean isDone()
     {
-      return !cursorOffset.withinBounds();
+      boolean done = !cursorOffset.withinBounds();
+      if (done && usageCollector != null) {
+        usageCollector.removeSelectors(this);
+      }
+      return done;
     }
 
     @Override

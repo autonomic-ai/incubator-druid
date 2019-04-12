@@ -54,7 +54,9 @@ public class TimeseriesQueryEngine
     return result;
   }
 
-  private Sequence<Result<TimeseriesResultValue>> generateTimeseriesResult(StorageAdapter adapter, TimeseriesQuery query, Filter filter)
+  private Sequence<Result<TimeseriesResultValue>> generateTimeseriesResult(StorageAdapter adapter,
+                                                                           TimeseriesQuery query,
+                                                                           Filter filter)
   {
     return QueryRunnerHelper.makeCursorBasedQuery(
         adapter,
@@ -63,6 +65,7 @@ public class TimeseriesQueryEngine
         query.getVirtualColumns(),
         query.isDescending(),
         query.getGranularity(),
+        query.getUsageCollector(),
         new Function<Cursor, Result<TimeseriesResultValue>>()
         {
           private final boolean skipEmptyBuckets = query.isSkipEmptyBuckets();

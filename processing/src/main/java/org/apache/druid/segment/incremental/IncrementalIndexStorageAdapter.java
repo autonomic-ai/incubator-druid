@@ -27,6 +27,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.QueryMetrics;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.segment.Capabilities;
@@ -185,7 +186,8 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       final VirtualColumns virtualColumns,
       final Granularity gran,
       final boolean descending,
-      @Nullable QueryMetrics<?> queryMetrics
+      @Nullable QueryMetrics<?> queryMetrics,
+      @Nullable UsageUtils.UsageCollector usageCollector
   )
   {
     if (index.isEmpty()) {
@@ -205,7 +207,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
 
     return Sequences
         .simple(intervals)
-        .map(i -> new IncrementalIndexCursor(virtualColumns, descending, filter, i, actualInterval, gran));
+        .map(i -> new IncrementalIndexCursor(virtualColumns, descending, filter, i, actualInterval, gran, usageCollector));
   }
 
   @Override
@@ -226,6 +228,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
     private final DateTime time;
     private int numAdvanced;
     private boolean done;
+    private UsageUtils.UsageCollector usageCollector;
 
     IncrementalIndexCursor(
         VirtualColumns virtualColumns,
@@ -233,7 +236,8 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
         Filter filter,
         Interval interval,
         Interval actualInterval,
-        Granularity gran
+        Granularity gran,
+        UsageUtils.UsageCollector usageCollector
     )
     {
       currEntry = new IncrementalIndexRowHolder();
@@ -250,6 +254,10 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       );
       emptyRange = !cursorIterable.iterator().hasNext();
       time = gran.toDateTime(interval.getStartMillis());
+      this.usageCollector = usageCollector;
+      if (usageCollector != null) {
+        this.usageCollector.createSelectors(this);
+      }
 
       reset();
     }
@@ -269,6 +277,10 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
     @Override
     public void advance()
     {
+      if (usageCollector != null) {
+        usageCollector.collect(this);
+      }
+
       if (!baseIter.hasNext()) {
         done = true;
         return;
@@ -333,6 +345,9 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
     @Override
     public boolean isDone()
     {
+      if (done && usageCollector != null) {
+        usageCollector.removeSelectors(this);
+      }
       return done;
     }
 

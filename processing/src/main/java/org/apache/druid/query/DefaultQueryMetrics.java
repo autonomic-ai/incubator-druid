@@ -208,6 +208,12 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
+  public QueryMetrics<QueryType> reportQueryNumAuSignals(long numAuSignals)
+  {
+    return reportMetric("query/numAuSignals", numAuSignals);
+  }
+
+  @Override
   public QueryMetrics<QueryType> reportWaitTime(long timeNs)
   {
     return reportMillisTimeMetric("query/wait/time", timeNs);

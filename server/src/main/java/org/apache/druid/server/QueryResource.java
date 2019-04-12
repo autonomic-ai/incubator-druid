@@ -188,7 +188,6 @@ public class QueryResource implements QueryCountStatsProvider
       if (!authResult.isAllowed()) {
         throw new ForbiddenException(authResult.toString());
       }
-
       final QueryLifecycle.QueryResponse queryResponse = queryLifecycle.execute();
       final Sequence<?> results = queryResponse.getResults();
       final Map<String, Object> responseContext = queryResponse.getResponseContext();
@@ -206,6 +205,8 @@ public class QueryResource implements QueryCountStatsProvider
             QueryContexts.isSerializeDateTimeAsLong(query, false)
             || (!shouldFinalize && QueryContexts.isSerializeDateTimeAsLongInner(query, false));
         final ObjectWriter jsonWriter = context.newOutputWriter(serializeDateTimeAsLong);
+        AtomicLong numAuSignals = query.getUsageCollector() == null ?
+                                  new AtomicLong(0) : query.getUsageCollector().getNumAuSignals();
         Response.ResponseBuilder builder = Response
             .ok(
                 new StreamingOutput()
@@ -231,7 +232,11 @@ public class QueryResource implements QueryCountStatsProvider
                     finally {
                       Thread.currentThread().setName(currThreadName);
 
-                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount());
+                      /* We don't emit numAuSignals here because this is run inside Historical, MiddleManager,
+                      and also query nodes when the query is issued with native Druid language.
+                      The external language we use is SQL. The numAuSignals are accumulated in SQL layer,
+                      in particular, QueryMaker. */
+                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), numAuSignals.get());
 
                       if (e == null) {
                         successfulQueryCount.incrementAndGet();
@@ -277,7 +282,7 @@ public class QueryResource implements QueryCountStatsProvider
     }
     catch (QueryInterruptedException e) {
       interruptedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1, -1);
       return context.gotError(e);
     }
     catch (ForbiddenException e) {
@@ -287,7 +292,7 @@ public class QueryResource implements QueryCountStatsProvider
     }
     catch (Exception e) {
       failedQueryCount.incrementAndGet();
-      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1);
+      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), -1, -1);
 
       log.makeAlert(e, "Exception handling request")
          .addData("exception", e.toString())

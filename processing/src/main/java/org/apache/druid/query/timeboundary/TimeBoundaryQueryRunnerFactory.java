@@ -117,6 +117,7 @@ public class TimeBoundaryQueryRunnerFactory
           VirtualColumns.EMPTY,
           descending,
           Granularities.ALL,
+          legacyQuery.getUsageCollector(),
           this.skipToFirstMatching
       );
       final List<Result<DateTime>> resultList = resultSequence.limit(1).toList();

@@ -257,6 +257,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           final boolean continueReading;
           try {
             final String responseContext = response.headers().get("X-Druid-Response-Context");
+
             // context may be null in case of error or query timeout
             if (responseContext != null) {
               context.putAll(

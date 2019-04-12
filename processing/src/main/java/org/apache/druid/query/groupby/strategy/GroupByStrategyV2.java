@@ -262,10 +262,12 @@ public class GroupByStrategyV2 implements GroupByStrategy
         null,
         query.getLimitSpec(),
         query.getSubtotalsSpec(),
-        query.getContext()
+        query.getContext(),
+        query.getUsageCollector()
     ).withOverriddenContext(
         context.build()
     );
+
 
     return Sequences.map(
         mergingQueryRunner.run(

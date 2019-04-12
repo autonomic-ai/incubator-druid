@@ -297,6 +297,7 @@ public class IncrementalIndexStorageAdapterTest
           VirtualColumns.EMPTY,
           Granularities.NONE,
           descending,
+          null,
           null
       );
 
@@ -453,6 +454,7 @@ public class IncrementalIndexStorageAdapterTest
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
     final AtomicInteger assertCursorsNotEmpty = new AtomicInteger(0);
@@ -517,6 +519,7 @@ public class IncrementalIndexStorageAdapterTest
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
     final AtomicInteger assertCursorsNotEmpty = new AtomicInteger(0);
@@ -568,6 +571,7 @@ public class IncrementalIndexStorageAdapterTest
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
     final AtomicInteger assertCursorsNotEmpty = new AtomicInteger(0);

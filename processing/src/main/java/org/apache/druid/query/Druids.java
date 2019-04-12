@@ -107,6 +107,7 @@ public class Druids
     private List<PostAggregator> postAggregatorSpecs;
     private Map<String, Object> context;
     private int limit;
+    private UsageUtils.UsageCollector usageCollector;
 
     private TimeseriesQueryBuilder()
     {
@@ -120,6 +121,7 @@ public class Druids
       postAggregatorSpecs = Lists.newArrayList();
       limit = 0;
       context = null;
+      usageCollector = null;
     }
 
     public TimeseriesQuery build()
@@ -134,7 +136,8 @@ public class Druids
           aggregatorSpecs,
           postAggregatorSpecs,
           limit,
-          context
+          context,
+          usageCollector
       );
     }
 
@@ -150,7 +153,8 @@ public class Druids
           .aggregators(query.getAggregatorSpecs())
           .postAggregators(query.getPostAggregatorSpecs())
           .limit(query.getLimit())
-          .context(query.getContext());
+          .context(query.getContext())
+          .usageCollector(query.getUsageCollector());
     }
 
     public TimeseriesQueryBuilder dataSource(String ds)
@@ -265,6 +269,12 @@ public class Druids
       limit = lim;
       return this;
     }
+
+    public TimeseriesQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    {
+      this.usageCollector = usageCollector;
+      return this;
+    }
   }
 
   public static TimeseriesQueryBuilder newTimeseriesQueryBuilder()
@@ -302,6 +312,7 @@ public class Druids
     private SearchQuerySpec querySpec;
     private SearchSortSpec sortSpec;
     private Map<String, Object> context;
+    private UsageUtils.UsageCollector usageCollector;
 
     public SearchQueryBuilder()
     {
@@ -314,6 +325,7 @@ public class Druids
       querySpec = null;
       sortSpec = null;
       context = null;
+      usageCollector = null;
     }
 
     public SearchQuery build()
@@ -327,7 +339,8 @@ public class Druids
           dimensions,
           querySpec,
           sortSpec,
-          context
+          context,
+          usageCollector
       );
     }
 
@@ -342,7 +355,8 @@ public class Druids
           .dimensions(query.getDimensions())
           .query(query.getQuery())
           .sortSpec(query.getSort())
-          .context(query.getContext());
+          .context(query.getContext())
+          .usageCollector(query.getUsageCollector());
     }
 
     public SearchQueryBuilder dataSource(String d)
@@ -466,6 +480,12 @@ public class Druids
       context = c;
       return this;
     }
+
+    public SearchQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    {
+      this.usageCollector = usageCollector;
+      return this;
+    }
   }
 
   public static SearchQueryBuilder newSearchQueryBuilder()
@@ -494,6 +514,7 @@ public class Druids
     private String bound;
     private DimFilter dimFilter;
     private Map<String, Object> context;
+    private UsageUtils.UsageCollector usageCollector;
 
     public TimeBoundaryQueryBuilder()
     {
@@ -502,6 +523,7 @@ public class Druids
       bound = null;
       dimFilter = null;
       context = null;
+      usageCollector = null;
     }
 
     public TimeBoundaryQuery build()
@@ -511,7 +533,8 @@ public class Druids
           querySegmentSpec,
           bound,
           dimFilter,
-          context
+          context,
+          usageCollector
       );
     }
 
@@ -522,7 +545,8 @@ public class Druids
           .intervals(query.getQuerySegmentSpec())
           .bound(query.getBound())
           .filters(query.getFilter())
-          .context(query.getContext());
+          .context(query.getContext())
+          .usageCollector(query.getUsageCollector());
     }
 
     public TimeBoundaryQueryBuilder dataSource(String ds)
@@ -570,6 +594,12 @@ public class Druids
     public TimeBoundaryQueryBuilder context(Map<String, Object> c)
     {
       context = c;
+      return this;
+    }
+
+    public TimeBoundaryQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    {
+      this.usageCollector = usageCollector;
       return this;
     }
   }
@@ -755,6 +785,7 @@ public class Druids
     private List<String> metrics;
     private VirtualColumns virtualColumns;
     private PagingSpec pagingSpec;
+    private UsageUtils.UsageCollector usageCollector;
 
     public SelectQueryBuilder()
     {
@@ -768,6 +799,7 @@ public class Druids
       metrics = Lists.newArrayList();
       virtualColumns = null;
       pagingSpec = null;
+      usageCollector = null;
     }
 
     public SelectQuery build()
@@ -782,7 +814,8 @@ public class Druids
           metrics,
           virtualColumns,
           pagingSpec,
-          context
+          context,
+          usageCollector
       );
     }
 
@@ -798,7 +831,8 @@ public class Druids
           .metrics(query.getMetrics())
           .virtualColumns(query.getVirtualColumns())
           .pagingSpec(query.getPagingSpec())
-          .context(query.getContext());
+          .context(query.getContext())
+          .usageCollector(query.getUsageCollector());
     }
 
     public SelectQueryBuilder dataSource(String ds)
@@ -886,6 +920,12 @@ public class Druids
     public SelectQueryBuilder pagingSpec(PagingSpec p)
     {
       pagingSpec = p;
+      return this;
+    }
+
+    public SelectQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    {
+      this.usageCollector = usageCollector;
       return this;
     }
   }

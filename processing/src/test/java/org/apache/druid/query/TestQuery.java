@@ -72,4 +72,10 @@ class TestQuery extends BaseQuery
         BaseQuery.computeOverriddenContext(getContext(), contextOverride)
     );
   }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return null;
+  }
 }
