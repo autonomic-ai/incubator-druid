@@ -24,6 +24,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -77,6 +78,7 @@ public class TopNQueryBuilder
   private List<AggregatorFactory> aggregatorSpecs;
   private List<PostAggregator> postAggregatorSpecs;
   private Map<String, Object> context;
+  private UsageUtils.UsageCollector usageCollector;
 
   public TopNQueryBuilder()
   {
@@ -91,6 +93,7 @@ public class TopNQueryBuilder
     aggregatorSpecs = Lists.newArrayList();
     postAggregatorSpecs = Lists.newArrayList();
     context = null;
+    usageCollector = null;
   }
 
   public TopNQueryBuilder(final TopNQuery query)
@@ -106,6 +109,7 @@ public class TopNQueryBuilder
     this.aggregatorSpecs = query.getAggregatorSpecs();
     this.postAggregatorSpecs = query.getPostAggregatorSpecs();
     this.context = query.getContext();
+    this.usageCollector = query.getUsageCollector();
   }
 
   public TopNQuery build()
@@ -121,7 +125,8 @@ public class TopNQueryBuilder
         granularity,
         aggregatorSpecs,
         postAggregatorSpecs,
-        context
+        context,
+        usageCollector
     );
   }
 
@@ -145,7 +150,8 @@ public class TopNQueryBuilder
         .granularity(builder.granularity)
         .aggregators(builder.aggregatorSpecs)
         .postAggregators(builder.postAggregatorSpecs)
-        .context(builder.context);
+        .context(builder.context)
+        .usageCollector(builder.usageCollector);
   }
 
   public TopNQueryBuilder dataSource(String d)
@@ -265,4 +271,9 @@ public class TopNQueryBuilder
     return this;
   }
 
+  public TopNQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+  {
+    this.usageCollector = usageCollector;
+    return this;
+  }
 }

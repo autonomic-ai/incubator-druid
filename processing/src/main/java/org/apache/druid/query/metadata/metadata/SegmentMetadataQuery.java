@@ -32,6 +32,7 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnionDataSource;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.metadata.SegmentMetadataQueryConfig;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
@@ -251,6 +252,12 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
   public List<Interval> getIntervals()
   {
     return this.getQuerySegmentSpec().getIntervals();
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return null;
   }
 
   @Override

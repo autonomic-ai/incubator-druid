@@ -258,6 +258,7 @@ public class SegmentAnalyzer
               VirtualColumns.EMPTY,
               Granularities.ALL,
               false,
+              null,
               null
           );
 

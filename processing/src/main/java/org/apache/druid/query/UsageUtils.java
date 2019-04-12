@@ -33,48 +33,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class UsageUtils
 {
-  public static final String NUM_AU_SIGNALS = "numAuSignals";
-  public static final String AU_SIGNALS = "X-Druid-Au-Signals";
-
-  /**
-   * Make {@link ColumnValueSelector} for all columns involved in query
-   * @param dimensionSpecs Dimsions of query, can be null for some kinds of query
-   * @param virtualColumns VirtualColumns of query
-   * @param dimFilter Filters of query
-   * @param aggregatorFactories Aggregator of query, can be null for some kinds of query
-   * @param columns columns of query, it names metrics in Select and columns in Scan,
-   *                can be null for some kinds of query
-   * @param cursor Cursor of segment
-   * @return List of {@link ColumnValueSelector} for all columns involved in query
-   */
-  public static List<ColumnValueSelector> makeRequiredSelectors(
-      @Nullable List<DimensionSpec> dimensionSpecs,
-      @Nullable VirtualColumns virtualColumns,
-      @Nullable DimFilter dimFilter,
-      @Nullable List<AggregatorFactory> aggregatorFactories,
-      @Nullable List<String> columns,
-      Cursor cursor
-  )
-  {
-    List<ColumnValueSelector> columnValueSelectors = new ArrayList<>();
-
-
-    for (String requiredColumn : getRequiredColumns(dimensionSpecs, virtualColumns, dimFilter, aggregatorFactories, columns)) {
-      ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
-      if (columnValueSelector instanceof NilColumnValueSelector) {
-        continue;
-      }
-      columnValueSelectors.add(columnValueSelector);
-    }
-
-    return columnValueSelectors;
-  }
-
-  static Set<String> getRequiredColumns(
+  public static Set<String> getRequiredColumns(
       @Nullable List<DimensionSpec> dimensionSpecs,
       @Nullable VirtualColumns virtualColumns,
       @Nullable DimFilter dimFilter,
@@ -110,10 +75,11 @@ public class UsageUtils
         requiredColumns.remove(virtualColumn.getOutputName());
       }
     }
+
     return requiredColumns;
   }
 
-  public static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
+  private static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
   {
     if (numAuSignals == null) {
       return;
@@ -139,5 +105,62 @@ public class UsageUtils
       return (((Number) value).doubleValue()) == 0;
     }
     return false;
+  }
+
+  public static class UsageCollector
+  {
+    AtomicLong numAuSignals;
+    Set<String> requiredColumns;
+    ConcurrentMap<Cursor, List<ColumnValueSelector>> selectorsMap;
+
+    public UsageCollector(
+        AtomicLong numAuSignals,
+        @Nullable List<DimensionSpec> dimensionSpecs,
+        @Nullable VirtualColumns virtualColumns,
+        @Nullable DimFilter dimFilter,
+        @Nullable List<AggregatorFactory> aggregatorFactories,
+        @Nullable List<String> columns
+    )
+    {
+      this.numAuSignals = numAuSignals;
+      this.requiredColumns = getRequiredColumns(
+          dimensionSpecs,
+          virtualColumns,
+          dimFilter,
+          aggregatorFactories,
+          columns
+      );
+
+      this.selectorsMap = new ConcurrentHashMap<>();
+    }
+
+    public void createSelectors(Cursor cursor)
+    {
+      List<ColumnValueSelector> selectors = new ArrayList<>();
+      for (String requiredColumn : requiredColumns) {
+        ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory()
+                                                        .makeColumnValueSelector(requiredColumn);
+        if (columnValueSelector instanceof NilColumnValueSelector) {
+          continue;
+        }
+        selectors.add(columnValueSelector);
+      }
+      selectorsMap.put(cursor, selectors);
+    }
+
+    public void removeSelectors(Cursor cursor)
+    {
+      selectorsMap.remove(cursor);
+    }
+
+    public void collect(Cursor cursor)
+    {
+      UsageUtils.incrementAuSignals(numAuSignals, selectorsMap.get(cursor));
+    }
+
+    public AtomicLong getNumAuSignals()
+    {
+      return numAuSignals;
+    }
   }
 }

@@ -102,7 +102,8 @@ public class GroupByQueryEngine
         query.getVirtualColumns(),
         query.getGranularity(),
         false,
-        null
+        null,
+        query.getUsageCollector()
     );
 
     final ResourceHolder<ByteBuffer> bufferHolder = intermediateResultsBufferPool.take();

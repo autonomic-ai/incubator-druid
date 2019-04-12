@@ -44,13 +44,6 @@ public class TimeseriesQueryEngine
 {
   public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query, final StorageAdapter adapter)
   {
-    return process(query, adapter, new HashMap<>());
-  }
-
-  public Sequence<Result<TimeseriesResultValue>> process(final TimeseriesQuery query,
-                                                         final StorageAdapter adapter,
-                                                         Map<String, Object> responseContext)
-  {
     if (adapter == null) {
       throw new SegmentMissingException(
           "Null storage adapter found. Probably trying to issue a query against a segment being memory unmapped."
@@ -59,7 +52,7 @@ public class TimeseriesQueryEngine
 
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getDimensionsFilter()));
     final int limit = query.getLimit();
-    Sequence<Result<TimeseriesResultValue>> result = generateTimeseriesResult(adapter, query, filter, responseContext);
+    Sequence<Result<TimeseriesResultValue>> result = generateTimeseriesResult(adapter, query, filter);
     if (limit < Integer.MAX_VALUE) {
       return result.limit(limit);
     }
@@ -68,8 +61,7 @@ public class TimeseriesQueryEngine
 
   private Sequence<Result<TimeseriesResultValue>> generateTimeseriesResult(StorageAdapter adapter,
                                                                            TimeseriesQuery query,
-                                                                           Filter filter,
-                                                                           Map<String, Object> responseContext)
+                                                                           Filter filter)
   {
     return QueryRunnerHelper.makeCursorBasedQuery(
         adapter,
@@ -78,6 +70,7 @@ public class TimeseriesQueryEngine
         query.getVirtualColumns(),
         query.isDescending(),
         query.getGranularity(),
+        query.getUsageCollector(),
         new Function<Cursor, Result<TimeseriesResultValue>>()
         {
           private final boolean skipEmptyBuckets = query.isSkipEmptyBuckets();
@@ -89,15 +82,6 @@ public class TimeseriesQueryEngine
             if (skipEmptyBuckets && cursor.isDone()) {
               return null;
             }
-
-            List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
-                null,
-                query.getVirtualColumns(),
-                query.getFilter(),
-                query.getAggregatorSpecs(),
-                null,
-                cursor
-            );
 
             Aggregator[] aggregators = new Aggregator[aggregatorSpecs.size()];
             String[] aggregatorNames = new String[aggregatorSpecs.size()];
@@ -112,7 +96,6 @@ public class TimeseriesQueryEngine
                 for (Aggregator aggregator : aggregators) {
                   aggregator.aggregate();
                 }
-                UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
                 cursor.advance();
               }
               TimeseriesResultBuilder bob = new TimeseriesResultBuilder(cursor.getTime());

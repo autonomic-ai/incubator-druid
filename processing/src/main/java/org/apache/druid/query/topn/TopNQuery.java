@@ -30,6 +30,7 @@ import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -38,9 +39,11 @@ import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.VirtualColumns;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -55,6 +58,8 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
   private final DimFilter dimFilter;
   private final List<AggregatorFactory> aggregatorSpecs;
   private final List<PostAggregator> postAggregatorSpecs;
+
+  private final UsageUtils.UsageCollector usageCollector;
 
   @JsonCreator
   public TopNQuery(
@@ -71,6 +76,37 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
       @JsonProperty("context") Map<String, Object> context
   )
   {
+    this(
+        dataSource,
+        virtualColumns,
+        dimensionSpec,
+        topNMetricSpec,
+        threshold,
+        querySegmentSpec,
+        dimFilter,
+        granularity,
+        aggregatorSpecs,
+        postAggregatorSpecs,
+        context,
+        null
+    );
+  }
+
+  public TopNQuery(
+      final DataSource dataSource,
+      final VirtualColumns virtualColumns,
+      final DimensionSpec dimensionSpec,
+      final TopNMetricSpec topNMetricSpec,
+      final int threshold,
+      final QuerySegmentSpec querySegmentSpec,
+      final DimFilter dimFilter,
+      final Granularity granularity,
+      final List<AggregatorFactory> aggregatorSpecs,
+      final List<PostAggregator> postAggregatorSpecs,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
     super(dataSource, querySegmentSpec, false, context, granularity);
 
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
@@ -84,8 +120,8 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
         ImmutableList.of(dimensionSpec.getOutputName()),
         this.aggregatorSpecs,
         postAggregatorSpecs == null
-            ? ImmutableList.of()
-            : postAggregatorSpecs
+        ? ImmutableList.of()
+        : postAggregatorSpecs
     );
 
     Preconditions.checkNotNull(dimensionSpec, "dimensionSpec can't be null");
@@ -93,6 +129,20 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
 
     Preconditions.checkArgument(threshold != 0, "Threshold cannot be equal to 0.");
     topNMetricSpec.verifyPreconditions(this.aggregatorSpecs, this.postAggregatorSpecs);
+
+    if (usageCollector == null) {
+      // TODO(joy) we might need to consider topNMetricSpec.
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          Collections.singletonList(dimensionSpec),
+          virtualColumns,
+          dimFilter,
+          aggregatorSpecs,
+          null
+      );
+    } else {
+      this.usageCollector = usageCollector;
+    }
   }
 
   @Override
@@ -205,6 +255,12 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
   public TopNQuery withDimFilter(DimFilter dimFilter)
   {
     return new TopNQueryBuilder(this).filters(dimFilter).build();
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
   }
 
   @Override

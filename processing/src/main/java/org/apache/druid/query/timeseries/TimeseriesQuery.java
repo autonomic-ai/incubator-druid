@@ -32,6 +32,7 @@ import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.filter.DimFilter;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -57,6 +59,8 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
   private final List<PostAggregator> postAggregatorSpecs;
   private final int limit;
 
+  private final UsageUtils.UsageCollector usageCollector;
+
   @JsonCreator
   public TimeseriesQuery(
       @JsonProperty("dataSource") DataSource dataSource,
@@ -71,6 +75,35 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
       @JsonProperty("context") Map<String, Object> context
   )
   {
+    this(
+        dataSource,
+        querySegmentSpec,
+        descending,
+        virtualColumns,
+        dimFilter,
+        granularity,
+        aggregatorSpecs,
+        postAggregatorSpecs,
+        limit,
+        context,
+        null
+    );
+  }
+
+  public TimeseriesQuery(
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      final boolean descending,
+      final VirtualColumns virtualColumns,
+      final DimFilter dimFilter,
+      final Granularity granularity,
+      final List<AggregatorFactory> aggregatorSpecs,
+      final List<PostAggregator> postAggregatorSpecs,
+      final int limit,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
     super(dataSource, querySegmentSpec, descending, context, granularity);
 
     this.virtualColumns = VirtualColumns.nullToEmpty(virtualColumns);
@@ -83,6 +116,19 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
     );
     this.limit = (limit == 0) ? Integer.MAX_VALUE : limit;
     Preconditions.checkArgument(this.limit > 0, "limit must be greater than 0");
+
+    if (usageCollector == null) {
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          null,
+          virtualColumns,
+          dimFilter,
+          aggregatorSpecs,
+          null
+      );
+    } else {
+      this.usageCollector = usageCollector;
+    }
   }
 
   @Override
@@ -185,6 +231,12 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
       optimizedAggs.add(aggregatorFactory.optimizeForSegment(optimizationContext));
     }
     return optimizedAggs;
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
   }
 
   @Override

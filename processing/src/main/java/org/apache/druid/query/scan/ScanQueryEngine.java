@@ -133,7 +133,8 @@ public class ScanQueryEngine
                     query.getVirtualColumns(),
                     Granularities.ALL,
                     query.isDescending(),
-                    null
+                    null,
+                    query.getUsageCollector()
                 )
                 .map(cursor -> new BaseSequence<>(
                     new BaseSequence.IteratorMaker<ScanResultValue, Iterator<ScanResultValue>>()
@@ -141,15 +142,6 @@ public class ScanQueryEngine
                       @Override
                       public Iterator<ScanResultValue> make()
                       {
-                        List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
-                            null,
-                            query.getVirtualColumns(),
-                            query.getFilter(),
-                            null,
-                            query.getColumns(),
-                            cursor
-                        );
-
                         final List<BaseObjectColumnValueSelector> columnSelectors = new ArrayList<>(allColumns.size());
 
                         for (String column : allColumns) {
@@ -223,7 +215,6 @@ public class ScanQueryEngine
                               for (int j = 0; j < allColumns.size(); j++) {
                                 theEvent.add(getColumnValue(j));
                               }
-                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
                               events.add(theEvent);
                             }
                             return events;
@@ -238,7 +229,6 @@ public class ScanQueryEngine
                               for (int j = 0; j < allColumns.size(); j++) {
                                 theEvent.put(allColumns.get(j), getColumnValue(j));
                               }
-                              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
                               events.add(theEvent);
                             }
                             return events;

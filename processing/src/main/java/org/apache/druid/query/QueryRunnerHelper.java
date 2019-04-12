@@ -47,6 +47,7 @@ public class QueryRunnerHelper
       VirtualColumns virtualColumns,
       boolean descending,
       Granularity granularity,
+      UsageUtils.UsageCollector usageCollector,
       final Function<Cursor, Result<T>> mapFn
   )
   {
@@ -56,7 +57,7 @@ public class QueryRunnerHelper
 
     return Sequences.filter(
         Sequences.map(
-            adapter.makeCursors(filter, queryIntervals.get(0), virtualColumns, granularity, descending, null),
+            adapter.makeCursors(filter, queryIntervals.get(0), virtualColumns, granularity, descending, null, usageCollector),
             new Function<Cursor, Result<T>>()
             {
               @Override

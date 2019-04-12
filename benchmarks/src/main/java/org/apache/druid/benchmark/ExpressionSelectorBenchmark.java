@@ -140,6 +140,7 @@ public class ExpressionSelectorBenchmark
         ),
         Granularities.ALL,
         false,
+        null,
         null
     );
 
@@ -166,6 +167,7 @@ public class ExpressionSelectorBenchmark
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
 
@@ -197,6 +199,7 @@ public class ExpressionSelectorBenchmark
         VirtualColumns.EMPTY,
         Granularities.HOUR,
         false,
+        null,
         null
     );
 
@@ -237,6 +240,7 @@ public class ExpressionSelectorBenchmark
         ),
         Granularities.ALL,
         false,
+        null,
         null
     );
 
@@ -269,6 +273,7 @@ public class ExpressionSelectorBenchmark
         ),
         Granularities.ALL,
         false,
+        null,
         null
     );
 
@@ -295,6 +300,7 @@ public class ExpressionSelectorBenchmark
         VirtualColumns.EMPTY,
         Granularities.ALL,
         false,
+        null,
         null
     );
 

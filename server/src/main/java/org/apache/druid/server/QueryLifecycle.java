@@ -126,8 +126,6 @@ public class QueryLifecycle
   )
   {
     initialize(query);
-    final AtomicLong numAuSignals;
-
     final Sequence<T> results;
 
     try {
@@ -135,10 +133,8 @@ public class QueryLifecycle
       if (!access.isAllowed()) {
         throw new ISE("Unauthorized");
       }
-
       final QueryLifecycle.QueryResponse queryResponse = execute();
       results = queryResponse.getResults();
-      numAuSignals = (AtomicLong) queryResponse.getResponseContext().get(UsageUtils.NUM_AU_SIGNALS);
     }
     catch (Throwable e) {
       emitLogsAndMetrics(e, remoteAddress, -1, -1);
@@ -152,7 +148,7 @@ public class QueryLifecycle
           @Override
           public void after(final boolean isDone, final Throwable thrown)
           {
-            emitLogsAndMetrics(thrown, remoteAddress, -1, numAuSignals.get());
+            emitLogsAndMetrics(thrown, remoteAddress, -1, -1);
           }
         }
     );
@@ -254,7 +250,6 @@ public class QueryLifecycle
 
     final Map<String, Object> responseContext = DirectDruidClient.makeResponseContextForQuery();
 
-    responseContext.put(UsageUtils.NUM_AU_SIGNALS, new AtomicLong(0));
     final Sequence res = QueryPlus.wrap(baseQuery)
                                   .withIdentity(authenticationResult.getIdentity())
                                   .run(texasRanger, responseContext);

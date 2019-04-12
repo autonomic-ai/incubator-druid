@@ -206,6 +206,8 @@ public class QueryResource implements QueryCountStatsProvider
             QueryContexts.isSerializeDateTimeAsLong(query, false)
             || (!shouldFinalize && QueryContexts.isSerializeDateTimeAsLongInner(query, false));
         final ObjectWriter jsonWriter = context.newOutputWriter(serializeDateTimeAsLong);
+        AtomicLong numAuSignals = query.getUsageCollector() == null ?
+                                  new AtomicLong(0) : query.getUsageCollector().getNumAuSignals();
         Response.ResponseBuilder builder = Response
             .ok(
                 new StreamingOutput()
@@ -235,7 +237,7 @@ public class QueryResource implements QueryCountStatsProvider
                       and also query nodes when the query is issued with native Druid language.
                       The external language we use is SQL. The numAuSignals are accumulated in SQL layer,
                       in particular, QueryMaker. */
-                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), 0L);
+                      queryLifecycle.emitLogsAndMetrics(e, req.getRemoteAddr(), os.getCount(), numAuSignals.get());
 
                       if (e == null) {
                         successfulQueryCount.incrementAndGet();
@@ -247,9 +249,7 @@ public class QueryResource implements QueryCountStatsProvider
                 },
                 context.getContentType()
             )
-            .header("X-Druid-Query-Id", queryId)
-            .header(UsageUtils.AU_SIGNALS, responseContext.getOrDefault(UsageUtils.NUM_AU_SIGNALS, -1L));
-        responseContext.remove(UsageUtils.NUM_AU_SIGNALS);
+            .header("X-Druid-Query-Id", queryId);
 
         if (responseContext.get(HEADER_ETAG) != null) {
           builder.header(HEADER_ETAG, responseContext.get(HEADER_ETAG));

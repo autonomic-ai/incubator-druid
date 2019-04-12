@@ -184,9 +184,7 @@ public class SelectQueryEngine
     }
   }
 
-  public Sequence<Result<SelectResultValue>> process(final SelectQuery query,
-                                                     final Segment segment,
-                                                     Map<String, Object> responseContext)
+  public Sequence<Result<SelectResultValue>> process(final SelectQuery query, final Segment segment)
   {
     final StorageAdapter adapter = segment.asStorageAdapter();
 
@@ -227,20 +225,12 @@ public class SelectQueryEngine
         query.getVirtualColumns(),
         query.isDescending(),
         query.getGranularity(),
+        query.getUsageCollector(),
         new Function<Cursor, Result<SelectResultValue>>()
         {
           @Override
           public Result<SelectResultValue> apply(Cursor cursor)
           {
-            List<ColumnValueSelector> columnValueSelectors = UsageUtils.makeRequiredSelectors(
-                query.getDimensions(),
-                query.getVirtualColumns(),
-                query.getFilter(),
-                null,
-                query.getMetrics(),
-                cursor
-            );
-
             final SelectResultValueBuilder builder = new SelectResultValueBuilder(
                 cursor.getTime(),
                 query.getPagingSpec(),
@@ -280,7 +270,6 @@ public class SelectQueryEngine
                   selectorPlusList,
                   metSelectors
               );
-              UsageUtils.incrementAuSignals((AtomicLong) responseContext.get(UsageUtils.NUM_AU_SIGNALS), columnValueSelectors);
               builder.addEntry(
                   new EventHolder(
                       segmentId,

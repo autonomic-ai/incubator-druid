@@ -45,6 +45,7 @@ import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -76,6 +77,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -106,6 +108,8 @@ public class GroupByQuery extends BaseQuery<Row>
   private final boolean applyLimitPushDown;
   private final Function<Sequence<Row>, Sequence<Row>> postProcessingFn;
 
+  private final UsageUtils.UsageCollector usageCollector;
+
   @JsonCreator
   public GroupByQuery(
       @JsonProperty("dataSource") DataSource dataSource,
@@ -135,7 +139,42 @@ public class GroupByQuery extends BaseQuery<Row>
         limitSpec,
         subtotalsSpec,
         null,
-        context
+        context,
+        null
+    );
+  }
+
+  public GroupByQuery(
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      final VirtualColumns virtualColumns,
+      final DimFilter dimFilter,
+      final Granularity granularity,
+      final List<DimensionSpec> dimensions,
+      final List<AggregatorFactory> aggregatorSpecs,
+      final List<PostAggregator> postAggregatorSpecs,
+      final HavingSpec havingSpec,
+      final LimitSpec limitSpec,
+      final @Nullable List<List<String>> subtotalsSpec,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
+    this(
+        dataSource,
+        querySegmentSpec,
+        virtualColumns,
+        dimFilter,
+        granularity,
+        dimensions,
+        aggregatorSpecs,
+        postAggregatorSpecs,
+        havingSpec,
+        limitSpec,
+        subtotalsSpec,
+        null,
+        context,
+        usageCollector
     );
   }
 
@@ -178,7 +217,8 @@ public class GroupByQuery extends BaseQuery<Row>
       final LimitSpec limitSpec,
       final @Nullable List<List<String>> subtotalsSpec,
       final @Nullable Function<Sequence<Row>, Sequence<Row>> postProcessingFn,
-      final Map<String, Object> context
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, false, context, granularity);
@@ -210,6 +250,19 @@ public class GroupByQuery extends BaseQuery<Row>
 
     // Check if limit push down configuration is valid and check if limit push down will be applied
     this.applyLimitPushDown = determineApplyLimitPushDown();
+
+    if (usageCollector == null) {
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          dimensions,
+          virtualColumns,
+          dimFilter,
+          aggregatorSpecs,
+          null
+      );
+    } else {
+      this.usageCollector = usageCollector;
+    }
   }
 
   private List<List<String>> verifySubtotalsSpec(List<List<String>> subtotalsSpec, List<DimensionSpec> dimensions)
@@ -330,6 +383,12 @@ public class GroupByQuery extends BaseQuery<Row>
   public boolean getApplyLimitPushDownFromContext()
   {
     return getContextBoolean(GroupByQueryConfig.CTX_KEY_APPLY_LIMIT_PUSH_DOWN, true);
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
   }
 
   @Override
@@ -757,6 +816,7 @@ public class GroupByQuery extends BaseQuery<Row>
     private HavingSpec havingSpec;
 
     private Map<String, Object> context;
+    private UsageUtils.UsageCollector usageCollector;
 
     private List<List<String>> subtotalsSpec = null;
     private LimitSpec limitSpec = null;
@@ -783,6 +843,7 @@ public class GroupByQuery extends BaseQuery<Row>
       subtotalsSpec = query.subtotalsSpec;
       postProcessingFn = query.postProcessingFn;
       context = query.getContext();
+      usageCollector = query.getUsageCollector();
     }
 
     public Builder(Builder builder)
@@ -802,6 +863,7 @@ public class GroupByQuery extends BaseQuery<Row>
       limit = builder.limit;
       orderByColumnSpecs = new ArrayList<>(builder.orderByColumnSpecs);
       context = builder.context;
+      usageCollector = builder.usageCollector;
     }
 
     public Builder setDataSource(DataSource dataSource)
@@ -1044,7 +1106,8 @@ public class GroupByQuery extends BaseQuery<Row>
           theLimitSpec,
           subtotalsSpec,
           postProcessingFn,
-          context
+          context,
+          usageCollector
       );
     }
   }

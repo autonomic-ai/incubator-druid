@@ -32,6 +32,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
+import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -40,6 +41,7 @@ import org.joda.time.DateTime;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -54,6 +56,8 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
   private final DimFilter dimFilter;
   private final String bound;
 
+  private final UsageUtils.UsageCollector usageCollector;
+
   @JsonCreator
   public TimeBoundaryQuery(
       @JsonProperty("dataSource") DataSource dataSource,
@@ -63,10 +67,42 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
       @JsonProperty("context") Map<String, Object> context
   )
   {
+    this(
+        dataSource,
+        querySegmentSpec,
+        bound,
+        dimFilter,
+        context,
+        null
+    );
+  }
+
+  public TimeBoundaryQuery(
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      final String bound,
+      final DimFilter dimFilter,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
     super(dataSource, querySegmentSpec == null ? DEFAULT_SEGMENT_SPEC : querySegmentSpec, false, context);
 
     this.dimFilter = dimFilter;
     this.bound = bound == null ? "" : bound;
+
+    if (usageCollector == null) {
+      this.usageCollector = new UsageUtils.UsageCollector(
+          new AtomicLong(0),
+          null,
+          null,
+          dimFilter,
+          null,
+          null
+      );
+    } else {
+      this.usageCollector = usageCollector;
+    }
   }
 
   @Override
@@ -194,6 +230,12 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
   boolean isMaxTime()
   {
     return bound.equalsIgnoreCase(MAX_TIME);
+  }
+
+  @Override
+  public UsageUtils.UsageCollector getUsageCollector()
+  {
+    return usageCollector;
   }
 
   @Override
