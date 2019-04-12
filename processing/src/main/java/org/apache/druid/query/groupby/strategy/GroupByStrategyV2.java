@@ -262,10 +262,12 @@ public class GroupByStrategyV2 implements GroupByStrategy
         null,
         query.getLimitSpec(),
         query.getSubtotalsSpec(),
-        query.getContext()
+        query.getContext(),
+        query.getUsageCollector()
     ).withOverriddenContext(
         context.build()
     );
+
 
     return Sequences.map(
         mergingQueryRunner.run(
@@ -471,10 +473,9 @@ public class GroupByStrategyV2 implements GroupByStrategy
   @Override
   public Sequence<Row> process(
       GroupByQuery query,
-      StorageAdapter storageAdapter,
-      Map<String, Object> responseContext
+      StorageAdapter storageAdapter
   )
   {
-    return GroupByQueryEngineV2.process(query, storageAdapter, bufferPool, configSupplier.get().withOverrides(query), responseContext);
+    return GroupByQueryEngineV2.process(query, storageAdapter, bufferPool, configSupplier.get().withOverrides(query));
   }
 }

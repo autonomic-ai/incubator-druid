@@ -37,7 +37,6 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerTestHelper;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.query.extraction.MapLookupExtractor;
 import org.apache.druid.query.filter.AndDimFilter;
@@ -64,7 +63,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -179,7 +177,6 @@ public class ScanQueryRunnerTest
         .build();
 
     HashMap<String, Object> context = new HashMap<String, Object>();
-    context.put(UsageUtils.NUM_AU_SIGNALS, new AtomicLong(0));
     Iterable<ScanResultValue> results = runner.run(QueryPlus.wrap(query), context).toList();
 
     List<ScanResultValue> expectedResults = toExpected(
