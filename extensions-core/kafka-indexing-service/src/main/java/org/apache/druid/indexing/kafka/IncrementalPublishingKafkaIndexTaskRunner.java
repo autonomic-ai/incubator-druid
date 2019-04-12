@@ -965,7 +965,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
     if (row instanceof MapBasedInputRow) {
       int processAuSignalsFromRow = numberOfAuSignalsInFabricEnvelopeRow((MapBasedInputRow) row);
 
-      log.info("The number of auSignals processed for segment %s is "
+      log.trace("The number of auSignals processed for segment %s is "
                + processAuSignalsFromRow, segmentIdentifier);
       return processAuSignalsFromRow;
     } else {
@@ -995,7 +995,7 @@ public class IncrementalPublishingKafkaIndexTaskRunner implements KafkaIndexTask
 
   private void recordPublishedAuSignals(int processedAuSignals)
   {
-    log.info(processedAuSignals + " auSignals persisted.");
+    log.debug(processedAuSignals + " auSignals persisted.");
     fireDepartmentMetrics.incrementAuSignalsPublishedCount(processedAuSignals);
   }
 
