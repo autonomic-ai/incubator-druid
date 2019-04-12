@@ -37,11 +37,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @RunWith(Parameterized.class)
 public class GroupByQueryUsageTest
@@ -49,8 +46,6 @@ public class GroupByQueryUsageTest
   private static final Closer resourceCloser = Closer.create();
 
   private final QueryRunner<Row> runner;
-  private final GroupByQueryConfig config;
-  private final String runnerName;
 
   @Parameterized.Parameters(name = "{0}")
   public static Collection<?> constructorFeeder()
@@ -64,7 +59,7 @@ public class GroupByQueryUsageTest
       final GroupByQueryRunnerFactory factory = factoryAndCloser.lhs;
       resourceCloser.register(factoryAndCloser.rhs);
       for (QueryRunner<Row> runner : QueryRunnerTestHelper.makeQueryRunners(factory)) {
-        constructors.add(new Object[]{config, factory, runner});
+        constructors.add(new Object[]{factory, runner});
       }
     }
 
@@ -78,13 +73,10 @@ public class GroupByQueryUsageTest
   }
 
   public GroupByQueryUsageTest(
-      GroupByQueryConfig config,
       GroupByQueryRunnerFactory factory,
       QueryRunner runner
   )
   {
-    this.runnerName = runner.toString();
-    this.config = config;
     this.runner = factory.mergeRunners(MoreExecutors.sameThreadExecutor(), ImmutableList.of(runner));
   }
 
@@ -98,25 +90,8 @@ public class GroupByQueryUsageTest
                        .setQuerySegmentSpec(QueryRunnerTestHelper.fullOnInterval);
   }
 
-  private static final Set<String> SPECIAL_CONFIG = new HashSet<>(Arrays.asList(
-      "noRollupRtIndex",
-      "mMappedTestIndex",
-      "noRollupMMappedTestIndex",
-      "mergedRealtimeIndex",
-      "rtIndex"
-  ));
-
-  private int getExpectedValue()
-  {
-    if (config.toString().equals("v2SmallBuffer")
-        && SPECIAL_CONFIG.contains(runnerName)) {
-      return 6275;
-    }
-    return 4185;
-  }
-
   @Test
-  public void testGroupByQuerySingleDimension()
+  public void testGroupByQueryWithSingleDimension()
   {
     GroupByQuery query = newTestQuery()
         .setDimensions(new DefaultDimensionSpec("quality", "quality", ValueType.FLOAT))
@@ -127,7 +102,7 @@ public class GroupByQueryUsageTest
   }
 
   @Test
-  public void testGroupByQueryMultiDimension()
+  public void testGroupByQueryWithMultiDimension()
   {
     GroupByQuery query = newTestQuery()
         .setDimensions(new DefaultDimensionSpec("quality", "quality"),
@@ -135,7 +110,7 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, getExpectedValue());
+    UsageTestUtils.verify(runner, query, 4185);
   }
 
   @Test

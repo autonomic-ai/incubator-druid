@@ -55,7 +55,6 @@ import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
 import org.apache.druid.query.QueryWatcher;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.MetricManipulatorFns;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;

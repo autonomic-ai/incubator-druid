@@ -31,7 +31,6 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.ColumnSelectorPlus;
 import org.apache.druid.query.QueryRunnerHelper;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.dimension.ColumnSelectorStrategy;
 import org.apache.druid.query.dimension.ColumnSelectorStrategyFactory;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -59,7 +58,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */

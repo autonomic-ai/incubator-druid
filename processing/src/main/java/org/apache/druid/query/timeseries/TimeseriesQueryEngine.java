@@ -23,20 +23,15 @@ import com.google.common.base.Function;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryRunnerHelper;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.filter.Filter;
-import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.SegmentMissingException;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.filter.Filters;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */

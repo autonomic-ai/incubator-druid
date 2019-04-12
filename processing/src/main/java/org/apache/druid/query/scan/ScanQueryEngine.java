@@ -31,10 +31,8 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.segment.BaseObjectColumnValueSelector;
-import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.StorageAdapter;
 import org.apache.druid.segment.VirtualColumn;
@@ -52,7 +50,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ScanQueryEngine
 {

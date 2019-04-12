@@ -40,7 +40,6 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QuerySegmentWalker;
 import org.apache.druid.query.QueryToolChest;
 import org.apache.druid.query.QueryToolChestWarehouse;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.server.log.RequestLogger;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthenticationResult;
@@ -53,7 +52,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Class that helps a Druid server (broker, historical, etc) manage the lifecycle of a query that it is handling. It
@@ -126,6 +124,7 @@ public class QueryLifecycle
   )
   {
     initialize(query);
+
     final Sequence<T> results;
 
     try {

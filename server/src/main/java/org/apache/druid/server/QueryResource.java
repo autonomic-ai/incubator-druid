@@ -45,7 +45,6 @@ import org.apache.druid.query.GenericQueryMetricsFactory;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.QueryInterruptedException;
-import org.apache.druid.query.UsageUtils;
 import org.apache.druid.server.metrics.QueryCountStatsProvider;
 import org.apache.druid.server.security.Access;
 import org.apache.druid.server.security.AuthConfig;

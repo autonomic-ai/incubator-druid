@@ -30,7 +30,6 @@ import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
 import org.junit.Assert;
 
 import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class UsageTestUtils
 {
@@ -55,11 +54,9 @@ public class UsageTestUtils
   public static void verify(QueryRunner runner, Query query, int signals)
   {
     HashMap<String, Object> context = new HashMap<String, Object>();
-    AtomicLong numAuSignals = new AtomicLong(0);
-    context.put(UsageUtils.NUM_AU_SIGNALS, numAuSignals);
     runner.run(QueryPlus.wrap(query), context).toList();
 
-    Assert.assertEquals(signals, numAuSignals.get());
+    Assert.assertEquals(signals, query.getUsageCollector().getNumAuSignals().get());
   }
 
 }

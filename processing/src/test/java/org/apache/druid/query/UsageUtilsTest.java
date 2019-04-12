@@ -37,8 +37,8 @@ import org.apache.druid.query.select.SelectQuery;
 import org.apache.druid.query.timeseries.TimeseriesQuery;
 import org.apache.druid.segment.VirtualColumn;
 import org.apache.druid.segment.virtual.ExpressionVirtualColumn;
-import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -52,7 +52,7 @@ public class UsageUtilsTest
 {
   private static Random random;
   private static List<String> columns;
-  private static Set<String> requiredColumns;
+  private Set<String> requiredColumns;
 
   @BeforeClass
   public static void init()
@@ -62,10 +62,9 @@ public class UsageUtilsTest
     for (char column = 'a'; column <= 'z'; column++) {
       columns.add(String.valueOf(column));
     }
-    requiredColumns = new HashSet<>();
   }
 
-  private List<String> randomSublist(List<String> sourceList)
+  private static List<String> randomSublist(List<String> sourceList)
   {
     List<String> pickedList = new ArrayList<>();
     int size = 3;
@@ -81,26 +80,25 @@ public class UsageUtilsTest
       }
     }
 
-    requiredColumns.addAll(pickedList);
     return pickedList;
   }
 
-  private String randomExpression(List<String> columns)
+  private static String randomExpression(List<String> columns)
   {
     char[] operations = {'+', '-', '*', '/'};
     StringBuilder expression = new StringBuilder();
     for (String column : columns) {
-      expression.append(column).append(operations[random.nextInt(4)]);
+      expression.append(column).append(operations[random.nextInt(operations.length)]);
     }
     expression.append("3");
     return expression.toString();
   }
 
-  private DimFilter randomFilter()
+  private static DimFilter randomFilter(Set<String> requiredColumns)
   {
-    String columnSelector = columns.get(random.nextInt(columns.size()));
-    requiredColumns.add(columnSelector);
-    DimFilter selectDimFilter = new SelectorDimFilter(columnSelector, "", null);
+    String selectedColumn = columns.get(random.nextInt(columns.size()));
+    requiredColumns.add(selectedColumn);
+    DimFilter selectDimFilter = new SelectorDimFilter(selectedColumn, "", null);
 
     String columnBound = columns.get(random.nextInt(columns.size()));
     requiredColumns.add(columnBound);
@@ -108,34 +106,38 @@ public class UsageUtilsTest
                                                    false, false, null, null);
 
     List<String> columnsInvolved = randomSublist(columns);
+    requiredColumns.addAll(columnsInvolved);
     DimFilter expressionDimFilter = new ExpressionDimFilter(randomExpression(columnsInvolved), null);
     return new OrDimFilter(new AndDimFilter(selectDimFilter, boundDimFilter), expressionDimFilter);
   }
 
-  private VirtualColumn randomVirtualColumn()
+  private static VirtualColumn randomVirtualColumn(Set<String> requiredColumns)
   {
     List<String> columnsInvolved = randomSublist(columns);
+    requiredColumns.addAll(columnsInvolved);
     return new ExpressionVirtualColumn("v0", randomExpression(columnsInvolved),
                                        null,
                                        null);
   }
 
 
-  private List<DimensionSpec> randomDimensionSpecs()
+  private static List<DimensionSpec> randomDimensionSpecs(Set<String> requiredColumns)
   {
-    List<String> columnInvolved = randomSublist(columns);
+    List<String> columnsInvolved = randomSublist(columns);
+    requiredColumns.addAll(columnsInvolved);
     List<DimensionSpec> dimensionSpecs = new ArrayList<>();
-    for (String column : columnInvolved) {
+    for (String column : columnsInvolved) {
       dimensionSpecs.add(new DefaultDimensionSpec(column, "d" + column, null));
     }
     return dimensionSpecs;
   }
 
-  private List<AggregatorFactory> randomAggregators()
+  private static List<AggregatorFactory> randomAggregators(Set<String> requiredColumns)
   {
     List<AggregatorFactory> aggregatorFactories = new ArrayList<>();
-    List<String> colmnsInvolved = randomSublist(columns);
-    for (String column : colmnsInvolved) {
+    List<String> columnsInvolved = randomSublist(columns);
+    requiredColumns.addAll(columnsInvolved);
+    for (String column : columnsInvolved) {
       aggregatorFactories.add(
           new StringFirstAggregatorFactory("vs" + column, column, null)
       );
@@ -146,29 +148,31 @@ public class UsageUtilsTest
     return aggregatorFactories;
   }
 
-  private void verify(Set<String> requiredColumns)
+  private static void verify(Set<String> expectedColumns, Set<String> columns)
   {
-    Assert.assertEquals(this.requiredColumns.size(), requiredColumns.size());
-    for (String column : requiredColumns) {
-      Assert.assertTrue(this.requiredColumns.contains(column));
+    Assert.assertEquals(expectedColumns.size(), columns.size());
+    for (String column : expectedColumns) {
+      Assert.assertTrue(columns.contains(column));
     }
   }
 
-  @After
-  public void clean()
+  @Before
+  public void construct()
   {
-    requiredColumns.clear();
+    requiredColumns = new HashSet<>();
   }
 
   @Test
   public void testRequiredColumnsOfScan()
   {
+    List<String> columnsInvolved = randomSublist(columns);
+    this.requiredColumns.addAll(columnsInvolved);
     ScanQuery scanQuery = ScanQuery.newScanQueryBuilder()
                                    .dataSource(new TableDataSource(QueryRunnerTestHelper.dataSource))
                                    .intervals(QueryRunnerTestHelper.fullOnInterval)
-                                   .columns(randomSublist(this.columns))
-                                   .virtualColumns(randomVirtualColumn())
-                                   .filters(randomFilter())
+                                   .columns(columnsInvolved)
+                                   .virtualColumns(randomVirtualColumn(this.requiredColumns))
+                                   .filters(randomFilter(this.requiredColumns))
                                    .build();
 
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
@@ -178,20 +182,22 @@ public class UsageUtilsTest
         null,
         scanQuery.getColumns()
     );
-    verify(requiredColumns);
+    verify(this.requiredColumns, requiredColumns);
   }
 
   @Test
   public void testRequiredColumnsOfSelect()
   {
+    List<String> columnsInvolved = randomSublist(columns);
+    this.requiredColumns.addAll(columnsInvolved);
     SelectQuery selectQuery = Druids.newSelectQueryBuilder()
                                     .dataSource(new TableDataSource(QueryRunnerTestHelper.dataSource))
                                     .intervals(QueryRunnerTestHelper.fullOnInterval)
                                     .pagingSpec(PagingSpec.newSpec(3))
-                                    .dimensionSpecs(randomDimensionSpecs())
-                                    .metrics(randomSublist(columns))
-                                    .filters(randomFilter())
-                                    .virtualColumns(randomVirtualColumn())
+                                    .dimensionSpecs(randomDimensionSpecs(this.requiredColumns))
+                                    .metrics(columnsInvolved)
+                                    .filters(randomFilter(this.requiredColumns))
+                                    .virtualColumns(randomVirtualColumn(this.requiredColumns))
                                     .build();
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
         selectQuery.getDimensions(),
@@ -200,7 +206,7 @@ public class UsageUtilsTest
         null,
         selectQuery.getMetrics()
     );
-    verify(requiredColumns);
+    verify(this.requiredColumns, requiredColumns);
   }
 
   @Test
@@ -209,9 +215,9 @@ public class UsageUtilsTest
     TimeseriesQuery timeseriesQuery = Druids.newTimeseriesQueryBuilder()
                                             .dataSource(QueryRunnerTestHelper.dataSource)
                                             .intervals(QueryRunnerTestHelper.firstToThird)
-                                            .aggregators(randomAggregators())
-                                            .virtualColumns(randomVirtualColumn())
-                                            .filters(randomFilter())
+                                            .aggregators(randomAggregators(this.requiredColumns))
+                                            .virtualColumns(randomVirtualColumn(this.requiredColumns))
+                                            .filters(randomFilter(this.requiredColumns))
                                             .build();
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
         null,
@@ -221,7 +227,7 @@ public class UsageUtilsTest
         null
     );
     this.requiredColumns.add("__time");
-    verify(requiredColumns);
+    verify(this.requiredColumns, requiredColumns);
   }
 
   @Test
@@ -231,10 +237,10 @@ public class UsageUtilsTest
                                             .setDataSource(QueryRunnerTestHelper.dataSource)
                                             .setQuerySegmentSpec(QueryRunnerTestHelper.firstToThird)
                                             .setGranularity(QueryRunnerTestHelper.allGran)
-                                            .setDimensions(randomDimensionSpecs())
-                                            .setAggregatorSpecs(randomAggregators())
-                                            .setVirtualColumns(randomVirtualColumn())
-                                            .setDimFilter(randomFilter())
+                                            .setDimensions(randomDimensionSpecs(this.requiredColumns))
+                                            .setAggregatorSpecs(randomAggregators(this.requiredColumns))
+                                            .setVirtualColumns(randomVirtualColumn(this.requiredColumns))
+                                            .setDimFilter(randomFilter(this.requiredColumns))
                                             .build();
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
         groupByQuery.getDimensions(),
@@ -244,6 +250,6 @@ public class UsageUtilsTest
         null
     );
     this.requiredColumns.add("__time");
-    verify(requiredColumns);
+    verify(this.requiredColumns, requiredColumns);
   }
 }
