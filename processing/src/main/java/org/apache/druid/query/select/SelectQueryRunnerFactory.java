@@ -100,7 +100,7 @@ public class SelectQueryRunnerFactory
         throw new ISE("Got a [%s] which isn't a %s", input.getClass(), SelectQuery.class);
       }
 
-      return engine.process((SelectQuery) input, segment, responseContext);
+      return engine.process((SelectQuery) input, segment);
     }
   }
 }

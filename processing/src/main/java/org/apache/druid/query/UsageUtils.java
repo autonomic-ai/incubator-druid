@@ -39,71 +39,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class UsageUtils
 {
-  public static final String NUM_AU_SIGNALS = "numAuSignals";
-  public static final String AU_SIGNALS = "X-Druid-Au-Signals";
-
-  /**
-   * Make {@link ColumnValueSelector} for all columns involved in query
-   * @param dimensionSpecs Dimsions of query, can be null for some kinds of query
-   * @param virtualColumns VirtualColumns of query
-   * @param dimFilter Filters of query
-   * @param aggregatorFactories Aggregator of query, can be null for some kinds of query
-   * @param columns columns of query, it names metrics in Select and columns in Scan,
-   *                can be null for some kinds of query
-   * @param cursor Cursor of segment
-   * @return List of {@link ColumnValueSelector} for all columns involved in query
-   */
-  public static List<ColumnValueSelector> makeRequiredSelectors(
-      @Nullable List<DimensionSpec> dimensionSpecs,
-      @Nullable VirtualColumns virtualColumns,
-      @Nullable DimFilter dimFilter,
-      @Nullable List<AggregatorFactory> aggregatorFactories,
-      @Nullable List<String> columns,
-      Cursor cursor
-  )
-  {
-    List<ColumnValueSelector> columnValueSelectors = new ArrayList<>();
-
-    Set<String> requiredColumns = new HashSet<>();
-
-    if (aggregatorFactories != null) {
-      for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
-        requiredColumns.addAll(aggregatorFactory.requiredFields());
-      }
-    }
-
-    if (dimFilter != null) {
-      requiredColumns.addAll(dimFilter.getRequiredColumns());
-    }
-
-    if (dimensionSpecs != null) {
-      for (DimensionSpec dimensionSpec : dimensionSpecs) {
-        requiredColumns.add(dimensionSpec.getDimension());
-      }
-    }
-
-    if (columns != null) {
-      requiredColumns.addAll(columns);
-    }
-
-    if (virtualColumns != null) {
-      for (VirtualColumn virtualColumn : virtualColumns.getVirtualColumns()) {
-        requiredColumns.addAll(virtualColumn.requiredColumns());
-        requiredColumns.remove(virtualColumn.getOutputName());
-      }
-    }
-
-    for (String requiredColumn : requiredColumns) {
-      ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory().makeColumnValueSelector(requiredColumn);
-      if (columnValueSelector instanceof NilColumnValueSelector) {
-        continue;
-      }
-      columnValueSelectors.add(columnValueSelector);
-    }
-
-    return columnValueSelectors;
-  }
-
   public static Set<String> getRequiredColumns(
       @Nullable List<DimensionSpec> dimensionSpecs,
       @Nullable VirtualColumns virtualColumns,
@@ -144,7 +79,7 @@ public class UsageUtils
     return requiredColumns;
   }
 
-  public static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
+  private static void incrementAuSignals(AtomicLong numAuSignals, List<ColumnValueSelector> columnValueSelectors)
   {
     if (numAuSignals == null) {
       return;
@@ -221,6 +156,11 @@ public class UsageUtils
     public void collect(Cursor cursor)
     {
       UsageUtils.incrementAuSignals(numAuSignals, selectorsMap.get(cursor));
+    }
+
+    public AtomicLong getNumAuSignals()
+    {
+      return numAuSignals;
     }
   }
 }

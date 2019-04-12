@@ -105,7 +105,7 @@ public class GroupByQueryRunnerFactory implements QueryRunnerFactory<Row, GroupB
         throw new ISE("Got a [%s] which isn't a %s", query.getClass(), GroupByQuery.class);
       }
 
-      return strategySelector.strategize((GroupByQuery) query).process((GroupByQuery) query, adapter, responseContext);
+      return strategySelector.strategize((GroupByQuery) query).process((GroupByQuery) query, adapter);
     }
   }
 }

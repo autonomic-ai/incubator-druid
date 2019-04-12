@@ -144,6 +144,40 @@ public class GroupByQuery extends BaseQuery<Row>
     );
   }
 
+  public GroupByQuery(
+      final DataSource dataSource,
+      final QuerySegmentSpec querySegmentSpec,
+      final VirtualColumns virtualColumns,
+      final DimFilter dimFilter,
+      final Granularity granularity,
+      final List<DimensionSpec> dimensions,
+      final List<AggregatorFactory> aggregatorSpecs,
+      final List<PostAggregator> postAggregatorSpecs,
+      final HavingSpec havingSpec,
+      final LimitSpec limitSpec,
+      final @Nullable List<List<String>> subtotalsSpec,
+      final Map<String, Object> context,
+      final UsageUtils.UsageCollector usageCollector
+  )
+  {
+    this(
+        dataSource,
+        querySegmentSpec,
+        virtualColumns,
+        dimFilter,
+        granularity,
+        dimensions,
+        aggregatorSpecs,
+        postAggregatorSpecs,
+        havingSpec,
+        limitSpec,
+        subtotalsSpec,
+        null,
+        context,
+        usageCollector
+    );
+  }
+
   private Function<Sequence<Row>, Sequence<Row>> makePostProcessingFn()
   {
     Function<Sequence<Row>, Sequence<Row>> postProcessingFn = limitSpec.build(
