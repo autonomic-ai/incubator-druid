@@ -80,3 +80,9 @@ _update_zookeeper_config() {
   sed -i "s%druid.zk.service.host=zk_host%druid.zk.service.host=${ZK_HOST}%g" \
     /opt/au/config/common/common.runtime.properties
 }
+
+_update_usage_reporter_config() {
+  sed -i "s%druid.monitor.usageReporter.kafkaBrokers=placeholder-usageKafkaBrokers%druid.monitor.usageReporter.kafkaBrokers=${USAGE_KAFKA_BROKERS}%g" \
+    /opt/au/config/common/common.runtime.properties
+
+}
