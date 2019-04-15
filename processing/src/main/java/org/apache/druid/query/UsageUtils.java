@@ -30,6 +30,7 @@ import org.apache.druid.segment.VirtualColumns;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,6 +40,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class UsageUtils
 {
+  private static final List<String> freeSignals = Arrays.asList("__time", "vin", "asset_aui");
+
   public static Set<String> getRequiredColumns(
       @Nullable List<DimensionSpec> dimensionSpecs,
       @Nullable VirtualColumns virtualColumns,
@@ -75,6 +78,8 @@ public class UsageUtils
         requiredColumns.remove(virtualColumn.getOutputName());
       }
     }
+
+    requiredColumns.removeAll(freeSignals);
 
     return requiredColumns;
   }

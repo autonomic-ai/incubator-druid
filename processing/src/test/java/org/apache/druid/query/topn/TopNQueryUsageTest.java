@@ -95,7 +95,7 @@ public class TopNQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
   }
 
   @Test
@@ -106,7 +106,7 @@ public class TopNQueryUsageTest
                         UsageTestUtils.EMPTY_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
   }
 
   @Test
@@ -117,7 +117,7 @@ public class TopNQueryUsageTest
                         UsageTestUtils.FOO_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
   }
 
   @Test
@@ -128,6 +128,6 @@ public class TopNQueryUsageTest
                         UsageTestUtils.CONSTANT_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
   }
 }

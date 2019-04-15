@@ -52,7 +52,7 @@ public class UsageUtilsTest
 {
   private static Random random;
   private static List<String> columns;
-  private Set<String> requiredColumns;
+  private Set<String> expectedRequiredColumns;
 
   @BeforeClass
   public static void init()
@@ -159,20 +159,20 @@ public class UsageUtilsTest
   @Before
   public void construct()
   {
-    requiredColumns = new HashSet<>();
+    expectedRequiredColumns = new HashSet<>();
   }
 
   @Test
   public void testRequiredColumnsOfScan()
   {
     List<String> columnsInvolved = randomSublist(columns);
-    this.requiredColumns.addAll(columnsInvolved);
+    this.expectedRequiredColumns.addAll(columnsInvolved);
     ScanQuery scanQuery = ScanQuery.newScanQueryBuilder()
                                    .dataSource(new TableDataSource(QueryRunnerTestHelper.dataSource))
                                    .intervals(QueryRunnerTestHelper.fullOnInterval)
                                    .columns(columnsInvolved)
-                                   .virtualColumns(randomVirtualColumn(this.requiredColumns))
-                                   .filters(randomFilter(this.requiredColumns))
+                                   .virtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
+                                   .filters(randomFilter(this.expectedRequiredColumns))
                                    .build();
 
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
@@ -182,22 +182,22 @@ public class UsageUtilsTest
         null,
         scanQuery.getColumns()
     );
-    verify(this.requiredColumns, requiredColumns);
+    verify(this.expectedRequiredColumns, requiredColumns);
   }
 
   @Test
   public void testRequiredColumnsOfSelect()
   {
     List<String> columnsInvolved = randomSublist(columns);
-    this.requiredColumns.addAll(columnsInvolved);
+    this.expectedRequiredColumns.addAll(columnsInvolved);
     SelectQuery selectQuery = Druids.newSelectQueryBuilder()
                                     .dataSource(new TableDataSource(QueryRunnerTestHelper.dataSource))
                                     .intervals(QueryRunnerTestHelper.fullOnInterval)
                                     .pagingSpec(PagingSpec.newSpec(3))
-                                    .dimensionSpecs(randomDimensionSpecs(this.requiredColumns))
+                                    .dimensionSpecs(randomDimensionSpecs(this.expectedRequiredColumns))
                                     .metrics(columnsInvolved)
-                                    .filters(randomFilter(this.requiredColumns))
-                                    .virtualColumns(randomVirtualColumn(this.requiredColumns))
+                                    .filters(randomFilter(this.expectedRequiredColumns))
+                                    .virtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
                                     .build();
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
         selectQuery.getDimensions(),
@@ -206,7 +206,7 @@ public class UsageUtilsTest
         null,
         selectQuery.getMetrics()
     );
-    verify(this.requiredColumns, requiredColumns);
+    verify(this.expectedRequiredColumns, requiredColumns);
   }
 
   @Test
@@ -215,9 +215,9 @@ public class UsageUtilsTest
     TimeseriesQuery timeseriesQuery = Druids.newTimeseriesQueryBuilder()
                                             .dataSource(QueryRunnerTestHelper.dataSource)
                                             .intervals(QueryRunnerTestHelper.firstToThird)
-                                            .aggregators(randomAggregators(this.requiredColumns))
-                                            .virtualColumns(randomVirtualColumn(this.requiredColumns))
-                                            .filters(randomFilter(this.requiredColumns))
+                                            .aggregators(randomAggregators(this.expectedRequiredColumns))
+                                            .virtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
+                                            .filters(randomFilter(this.expectedRequiredColumns))
                                             .build();
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
         null,
@@ -226,8 +226,7 @@ public class UsageUtilsTest
         timeseriesQuery.getAggregatorSpecs(),
         null
     );
-    this.requiredColumns.add("__time");
-    verify(this.requiredColumns, requiredColumns);
+    verify(this.expectedRequiredColumns, requiredColumns);
   }
 
   @Test
@@ -237,10 +236,10 @@ public class UsageUtilsTest
                                             .setDataSource(QueryRunnerTestHelper.dataSource)
                                             .setQuerySegmentSpec(QueryRunnerTestHelper.firstToThird)
                                             .setGranularity(QueryRunnerTestHelper.allGran)
-                                            .setDimensions(randomDimensionSpecs(this.requiredColumns))
-                                            .setAggregatorSpecs(randomAggregators(this.requiredColumns))
-                                            .setVirtualColumns(randomVirtualColumn(this.requiredColumns))
-                                            .setDimFilter(randomFilter(this.requiredColumns))
+                                            .setDimensions(randomDimensionSpecs(this.expectedRequiredColumns))
+                                            .setAggregatorSpecs(randomAggregators(this.expectedRequiredColumns))
+                                            .setVirtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
+                                            .setDimFilter(randomFilter(this.expectedRequiredColumns))
                                             .build();
     Set<String> requiredColumns = UsageUtils.getRequiredColumns(
         groupByQuery.getDimensions(),
@@ -249,7 +248,6 @@ public class UsageUtilsTest
         groupByQuery.getAggregatorSpecs(),
         null
     );
-    this.requiredColumns.add("__time");
-    verify(this.requiredColumns, requiredColumns);
+    verify(this.expectedRequiredColumns, requiredColumns);
   }
 }

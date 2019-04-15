@@ -78,7 +78,7 @@ public class ScanQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 8370);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
   }
 
   @Test
@@ -93,7 +93,7 @@ public class ScanQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 8370);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
   }
 
   @Test
@@ -109,7 +109,7 @@ public class ScanQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 8370);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
   }
 
   @Test
@@ -121,6 +121,6 @@ public class ScanQueryUsageTest
                         UsageTestUtils.CONSTANT_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 8370);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
   }
 }

@@ -82,9 +82,9 @@ public class TimeseriesQueryUsageTest
   private int getExpectedValue()
   {
     if (aggregatorFactoryList == QueryRunnerTestHelper.commonFloatAggregators) {
-      return 4185;
+      return UsageTestUtils.numTestRows * 5;
     }
-    return 3348;
+    return UsageTestUtils.numTestRows * 4;
   }
 
   @Test

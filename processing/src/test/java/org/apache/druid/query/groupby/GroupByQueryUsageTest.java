@@ -98,7 +98,7 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
   }
 
   @Test
@@ -106,11 +106,11 @@ public class GroupByQueryUsageTest
   {
     GroupByQuery query = newTestQuery()
         .setDimensions(new DefaultDimensionSpec("quality", "quality"),
-                       new DefaultDimensionSpec("index", "index"))
+                       new DefaultDimensionSpec("placement", "placement"))
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 6);
   }
 
   @Test
@@ -121,7 +121,7 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 3348);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 4);
   }
 
   @Test
@@ -131,7 +131,7 @@ public class GroupByQueryUsageTest
         .setDimensions(new DefaultDimensionSpec("foo", "foo"))
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
-    UsageTestUtils.verify(runner, query, 3348);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 4);
   }
 
   @Test
@@ -142,6 +142,6 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN,
                            UsageTestUtils.CONSTANT_COLUMN)
         .build();
-    UsageTestUtils.verify(runner, query, 4185);
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
   }
 }

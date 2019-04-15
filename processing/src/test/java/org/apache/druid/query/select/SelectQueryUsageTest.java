@@ -35,6 +35,7 @@ import java.util.Arrays;
 @RunWith(Parameterized.class)
 public class SelectQueryUsageTest
 {
+  private static final int numTestRows = 100;
   private static final boolean DEFAULT_FROM_NEXT = true;
 
   private static final SelectQueryConfig config = new SelectQueryConfig(true);
@@ -91,7 +92,7 @@ public class SelectQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 100);
+    UsageTestUtils.verify(runner, query, numTestRows);
   }
 
   @Test
@@ -106,7 +107,7 @@ public class SelectQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 100);
+    UsageTestUtils.verify(runner, query, numTestRows);
   }
 
   @Test
@@ -122,7 +123,7 @@ public class SelectQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 100);
+    UsageTestUtils.verify(runner, query, numTestRows);
   }
 
   @Test
@@ -134,6 +135,6 @@ public class SelectQueryUsageTest
                         UsageTestUtils.CONSTANT_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, 100);
+    UsageTestUtils.verify(runner, query, numTestRows);
   }
 }

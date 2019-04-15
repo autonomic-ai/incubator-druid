@@ -33,6 +33,8 @@ import java.util.HashMap;
 
 public class UsageTestUtils
 {
+  public static int numTestRows = 837;
+
   public static final String[] COLUMNS = {"qualityFloat", "qualityDouble", "qualityNumericString", "placement",
                                           "placementish", "indexMaxPlusTen", "quality_uniques"};
   public static final String NULL_COLUMN = "partial_null_column";
