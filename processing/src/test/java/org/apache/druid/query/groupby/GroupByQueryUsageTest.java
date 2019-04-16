@@ -98,7 +98,11 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
+    int nonNullColumns = 1 /* Dimensions */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -110,7 +114,11 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 6);
+    int nonNullColumns = 2 /* Dimensions */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -121,7 +129,10 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 4);
+    int nonNullColumns = 1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -131,7 +142,11 @@ public class GroupByQueryUsageTest
         .setDimensions(new DefaultDimensionSpec("foo", "foo"))
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 4);
+
+    int nonNullColumns = 1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -142,6 +157,11 @@ public class GroupByQueryUsageTest
         .setVirtualColumns(UsageTestUtils.EXPR_COLUMN,
                            UsageTestUtils.CONSTANT_COLUMN)
         .build();
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
+
+    int nonNullColumns = 1 /* Dimensions */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 }
