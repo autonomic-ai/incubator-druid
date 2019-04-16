@@ -47,7 +47,7 @@ public class QueryRunnerHelper
       VirtualColumns virtualColumns,
       boolean descending,
       Granularity granularity,
-      UsageUtils.UsageCollector usageCollector,
+      UsageCollector usageCollector,
       final Function<Cursor, Result<T>> mapFn
   )
   {

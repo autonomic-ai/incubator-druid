@@ -45,7 +45,7 @@ import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryDataSource;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -108,7 +108,7 @@ public class GroupByQuery extends BaseQuery<Row>
   private final boolean applyLimitPushDown;
   private final Function<Sequence<Row>, Sequence<Row>> postProcessingFn;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public GroupByQuery(
@@ -157,7 +157,7 @@ public class GroupByQuery extends BaseQuery<Row>
       final LimitSpec limitSpec,
       final @Nullable List<List<String>> subtotalsSpec,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     this(
@@ -218,7 +218,7 @@ public class GroupByQuery extends BaseQuery<Row>
       final @Nullable List<List<String>> subtotalsSpec,
       final @Nullable Function<Sequence<Row>, Sequence<Row>> postProcessingFn,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, false, context, granularity);
@@ -252,7 +252,7 @@ public class GroupByQuery extends BaseQuery<Row>
     this.applyLimitPushDown = determineApplyLimitPushDown();
 
     if (usageCollector == null) {
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           dimensions,
           virtualColumns,
@@ -386,7 +386,7 @@ public class GroupByQuery extends BaseQuery<Row>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }
@@ -816,7 +816,7 @@ public class GroupByQuery extends BaseQuery<Row>
     private HavingSpec havingSpec;
 
     private Map<String, Object> context;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     private List<List<String>> subtotalsSpec = null;
     private LimitSpec limitSpec = null;

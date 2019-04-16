@@ -33,7 +33,7 @@ import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.BitmapResultFactory;
 import org.apache.druid.query.DefaultBitmapResultFactory;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import org.apache.druid.segment.column.BaseColumn;
@@ -206,7 +206,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       Granularity gran,
       boolean descending,
       @Nullable QueryMetrics<?> queryMetrics,
-      @Nullable UsageUtils.UsageCollector usageCollector
+      @Nullable UsageCollector usageCollector
   )
   {
 
@@ -352,7 +352,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Nullable
     private final Filter postFilter;
     private final ColumnSelectorBitmapIndexSelector bitmapIndexSelector;
-    private final UsageUtils.UsageCollector usageCollector;
+    private final UsageCollector usageCollector;
 
     public CursorSequenceBuilder(
         QueryableIndexStorageAdapter storageAdapter,
@@ -365,7 +365,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
         boolean descending,
         @Nullable Filter postFilter,
         ColumnSelectorBitmapIndexSelector bitmapIndexSelector,
-        @Nullable UsageUtils.UsageCollector usageCollector
+        @Nullable UsageCollector usageCollector
     )
     {
       this.index = storageAdapter.index;
@@ -478,12 +478,12 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     private final Offset cursorOffset;
     private final ColumnSelectorFactory columnSelectorFactory;
     private final DateTime bucketStart;
-    private final UsageUtils.UsageCollector usageCollector;
+    private final UsageCollector usageCollector;
 
     QueryableIndexCursor(Offset cursorOffset,
                          ColumnSelectorFactory columnSelectorFactory,
                          DateTime bucketStart,
-                         UsageUtils.UsageCollector usageCollector)
+                         UsageCollector usageCollector)
     {
       this.cursorOffset = cursorOffset;
       this.columnSelectorFactory = columnSelectorFactory;

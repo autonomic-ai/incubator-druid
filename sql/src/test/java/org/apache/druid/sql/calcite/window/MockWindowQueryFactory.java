@@ -24,7 +24,7 @@ import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Query;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -94,7 +94,7 @@ public class MockWindowQueryFactory implements WindowQueryFactory
     }
 
     @Override
-    public UsageUtils.UsageCollector getUsageCollector()
+    public UsageCollector getUsageCollector()
     {
       return null;
     }

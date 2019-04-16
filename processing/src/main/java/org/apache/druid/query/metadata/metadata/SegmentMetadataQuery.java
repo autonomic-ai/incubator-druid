@@ -32,7 +32,7 @@ import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.query.UnionDataSource;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.metadata.SegmentMetadataQueryConfig;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
@@ -255,7 +255,7 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return null;
   }

@@ -32,7 +32,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.MultipleIntervalSegmentSpec;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -56,7 +56,7 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
   private final DimFilter dimFilter;
   private final String bound;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public TimeBoundaryQuery(
@@ -83,7 +83,7 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
       final String bound,
       final DimFilter dimFilter,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec == null ? DEFAULT_SEGMENT_SPEC : querySegmentSpec, false, context);
@@ -92,7 +92,7 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
     this.bound = bound == null ? "" : bound;
 
     if (usageCollector == null) {
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           null,
           null,
@@ -233,7 +233,7 @@ public class TimeBoundaryQuery extends BaseQuery<Result<TimeBoundaryResultValue>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }

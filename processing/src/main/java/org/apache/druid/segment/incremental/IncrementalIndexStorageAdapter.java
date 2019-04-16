@@ -27,7 +27,7 @@ import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.filter.Filter;
 import org.apache.druid.query.filter.ValueMatcher;
 import org.apache.druid.segment.Capabilities;
@@ -187,7 +187,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       final Granularity gran,
       final boolean descending,
       @Nullable QueryMetrics<?> queryMetrics,
-      @Nullable UsageUtils.UsageCollector usageCollector
+      @Nullable UsageCollector usageCollector
   )
   {
     if (index.isEmpty()) {
@@ -228,7 +228,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
     private final DateTime time;
     private int numAdvanced;
     private boolean done;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     IncrementalIndexCursor(
         VirtualColumns virtualColumns,
@@ -237,7 +237,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
         Interval interval,
         Interval actualInterval,
         Granularity gran,
-        UsageUtils.UsageCollector usageCollector
+        UsageCollector usageCollector
     )
     {
       currEntry = new IncrementalIndexRowHolder();

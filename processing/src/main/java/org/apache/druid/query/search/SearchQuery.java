@@ -29,7 +29,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.ordering.StringComparators;
@@ -51,7 +51,7 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
   private final SearchQuerySpec querySpec;
   private final int limit;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public SearchQuery(
@@ -90,7 +90,7 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
       final SearchQuerySpec querySpec,
       final SearchSortSpec sortSpec,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, false, context, Granularities.nullToAll(granularity));
@@ -103,7 +103,7 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
     this.querySpec = querySpec == null ? new AllSearchQuerySpec() : querySpec;
 
     if (usageCollector == null) {
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           dimensions,
           null,
@@ -194,7 +194,7 @@ public class SearchQuery extends BaseQuery<Result<SearchResultValue>>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }

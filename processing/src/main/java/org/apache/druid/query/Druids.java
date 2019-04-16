@@ -107,7 +107,7 @@ public class Druids
     private List<PostAggregator> postAggregatorSpecs;
     private Map<String, Object> context;
     private int limit;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     private TimeseriesQueryBuilder()
     {
@@ -270,7 +270,7 @@ public class Druids
       return this;
     }
 
-    public TimeseriesQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    public TimeseriesQueryBuilder usageCollector(UsageCollector usageCollector)
     {
       this.usageCollector = usageCollector;
       return this;
@@ -312,7 +312,7 @@ public class Druids
     private SearchQuerySpec querySpec;
     private SearchSortSpec sortSpec;
     private Map<String, Object> context;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     public SearchQueryBuilder()
     {
@@ -481,7 +481,7 @@ public class Druids
       return this;
     }
 
-    public SearchQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    public SearchQueryBuilder usageCollector(UsageCollector usageCollector)
     {
       this.usageCollector = usageCollector;
       return this;
@@ -514,7 +514,7 @@ public class Druids
     private String bound;
     private DimFilter dimFilter;
     private Map<String, Object> context;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     public TimeBoundaryQueryBuilder()
     {
@@ -597,7 +597,7 @@ public class Druids
       return this;
     }
 
-    public TimeBoundaryQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    public TimeBoundaryQueryBuilder usageCollector(UsageCollector usageCollector)
     {
       this.usageCollector = usageCollector;
       return this;
@@ -785,7 +785,7 @@ public class Druids
     private List<String> metrics;
     private VirtualColumns virtualColumns;
     private PagingSpec pagingSpec;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     public SelectQueryBuilder()
     {
@@ -923,7 +923,7 @@ public class Druids
       return this;
     }
 
-    public SelectQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    public SelectQueryBuilder usageCollector(UsageCollector usageCollector)
     {
       this.usageCollector = usageCollector;
       return this;

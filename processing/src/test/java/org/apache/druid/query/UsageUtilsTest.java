@@ -175,7 +175,7 @@ public class UsageUtilsTest
                                    .filters(randomFilter(this.expectedRequiredColumns))
                                    .build();
 
-    Set<String> requiredColumns = UsageUtils.getRequiredColumns(
+    Set<String> requiredColumns = UsageCollector.getRequiredColumns(
         null,
         scanQuery.getVirtualColumns(),
         scanQuery.getFilter(),
@@ -199,7 +199,7 @@ public class UsageUtilsTest
                                     .filters(randomFilter(this.expectedRequiredColumns))
                                     .virtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
                                     .build();
-    Set<String> requiredColumns = UsageUtils.getRequiredColumns(
+    Set<String> requiredColumns = UsageCollector.getRequiredColumns(
         selectQuery.getDimensions(),
         selectQuery.getVirtualColumns(),
         selectQuery.getFilter(),
@@ -219,7 +219,7 @@ public class UsageUtilsTest
                                             .virtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
                                             .filters(randomFilter(this.expectedRequiredColumns))
                                             .build();
-    Set<String> requiredColumns = UsageUtils.getRequiredColumns(
+    Set<String> requiredColumns = UsageCollector.getRequiredColumns(
         null,
         timeseriesQuery.getVirtualColumns(),
         timeseriesQuery.getFilter(),
@@ -241,7 +241,7 @@ public class UsageUtilsTest
                                             .setVirtualColumns(randomVirtualColumn(this.expectedRequiredColumns))
                                             .setDimFilter(randomFilter(this.expectedRequiredColumns))
                                             .build();
-    Set<String> requiredColumns = UsageUtils.getRequiredColumns(
+    Set<String> requiredColumns = UsageCollector.getRequiredColumns(
         groupByQuery.getDimensions(),
         groupByQuery.getVirtualColumns(),
         groupByQuery.getDimFilter(),
