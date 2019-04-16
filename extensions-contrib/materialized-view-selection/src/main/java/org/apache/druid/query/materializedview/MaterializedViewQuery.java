@@ -30,7 +30,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QuerySegmentWalker;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.groupby.GroupByQuery;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -206,7 +206,7 @@ public class MaterializedViewQuery<T> implements Query<T>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return query.getUsageCollector();
   }

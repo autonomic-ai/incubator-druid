@@ -38,9 +38,34 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class UsageUtils
+public class UsageCollector
 {
   private static final List<String> freeSignals = Arrays.asList("__time", "vin", "asset_aui");
+
+  AtomicLong numAuSignals;
+  Set<String> requiredColumns;
+  ConcurrentMap<Cursor, List<ColumnValueSelector>> selectorsMap;
+
+  public UsageCollector(
+      AtomicLong numAuSignals,
+      @Nullable List<DimensionSpec> dimensionSpecs,
+      @Nullable VirtualColumns virtualColumns,
+      @Nullable DimFilter dimFilter,
+      @Nullable List<AggregatorFactory> aggregatorFactories,
+      @Nullable List<String> columns
+  )
+  {
+    this.numAuSignals = numAuSignals;
+    this.requiredColumns = getRequiredColumns(
+        dimensionSpecs,
+        virtualColumns,
+        dimFilter,
+        aggregatorFactories,
+        columns
+    );
+
+    this.selectorsMap = new ConcurrentHashMap<>();
+  }
 
   public static Set<String> getRequiredColumns(
       @Nullable List<DimensionSpec> dimensionSpecs,
@@ -112,60 +137,32 @@ public class UsageUtils
     return false;
   }
 
-  public static class UsageCollector
+  public void createSelectors(Cursor cursor)
   {
-    AtomicLong numAuSignals;
-    Set<String> requiredColumns;
-    ConcurrentMap<Cursor, List<ColumnValueSelector>> selectorsMap;
-
-    public UsageCollector(
-        AtomicLong numAuSignals,
-        @Nullable List<DimensionSpec> dimensionSpecs,
-        @Nullable VirtualColumns virtualColumns,
-        @Nullable DimFilter dimFilter,
-        @Nullable List<AggregatorFactory> aggregatorFactories,
-        @Nullable List<String> columns
-    )
-    {
-      this.numAuSignals = numAuSignals;
-      this.requiredColumns = getRequiredColumns(
-          dimensionSpecs,
-          virtualColumns,
-          dimFilter,
-          aggregatorFactories,
-          columns
-      );
-
-      this.selectorsMap = new ConcurrentHashMap<>();
-    }
-
-    public void createSelectors(Cursor cursor)
-    {
-      List<ColumnValueSelector> selectors = new ArrayList<>();
-      for (String requiredColumn : requiredColumns) {
-        ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory()
-                                                        .makeColumnValueSelector(requiredColumn);
-        if (columnValueSelector instanceof NilColumnValueSelector) {
-          continue;
-        }
-        selectors.add(columnValueSelector);
+    List<ColumnValueSelector> selectors = new ArrayList<>();
+    for (String requiredColumn : requiredColumns) {
+      ColumnValueSelector columnValueSelector = cursor.getColumnSelectorFactory()
+                                                      .makeColumnValueSelector(requiredColumn);
+      if (columnValueSelector instanceof NilColumnValueSelector) {
+        continue;
       }
-      selectorsMap.put(cursor, selectors);
+      selectors.add(columnValueSelector);
     }
+    selectorsMap.put(cursor, selectors);
+  }
 
-    public void removeSelectors(Cursor cursor)
-    {
-      selectorsMap.remove(cursor);
-    }
+  public void removeSelectors(Cursor cursor)
+  {
+    selectorsMap.remove(cursor);
+  }
 
-    public void collect(Cursor cursor)
-    {
-      UsageUtils.incrementAuSignals(numAuSignals, selectorsMap.get(cursor));
-    }
+  public void collect(Cursor cursor)
+  {
+    incrementAuSignals(numAuSignals, selectorsMap.get(cursor));
+  }
 
-    public AtomicLong getNumAuSignals()
-    {
-      return numAuSignals;
-    }
+  public AtomicLong getNumAuSignals()
+  {
+    return numAuSignals;
   }
 }

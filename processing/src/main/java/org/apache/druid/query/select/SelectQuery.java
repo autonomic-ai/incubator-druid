@@ -30,7 +30,7 @@ import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Druids;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
@@ -52,7 +52,7 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
   private final VirtualColumns virtualColumns;
   private final PagingSpec pagingSpec;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public SelectQuery(
@@ -94,7 +94,7 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
       final VirtualColumns virtualColumns,
       final PagingSpec pagingSpec,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, descending, context, Granularities.nullToAll(granularity));
@@ -105,7 +105,7 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
     this.pagingSpec = pagingSpec;
 
     if (usageCollector == null) {
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           dimensions,
           virtualColumns,
@@ -214,7 +214,7 @@ public class SelectQuery extends BaseQuery<Result<SelectResultValue>>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }
