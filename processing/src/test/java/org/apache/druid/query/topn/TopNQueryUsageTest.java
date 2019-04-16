@@ -95,7 +95,11 @@ public class TopNQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
+    int nonNullColumns = 1 /* quality */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -106,7 +110,11 @@ public class TopNQueryUsageTest
                         UsageTestUtils.EMPTY_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
+    int nonNullColumns = 1 /* quality */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -117,7 +125,11 @@ public class TopNQueryUsageTest
                         UsageTestUtils.FOO_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
+    int nonNullColumns = 1 /* quality */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -128,6 +140,10 @@ public class TopNQueryUsageTest
                         UsageTestUtils.CONSTANT_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 5);
+    int nonNullColumns = 1 /* quality */ +
+                         1 /* AGGREGATOR_FACTORY */ +
+                         1 /* FILTER */ +
+                         2 /* EXPR_COLUMN */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 }

@@ -35,7 +35,6 @@ import java.util.Arrays;
 @RunWith(Parameterized.class)
 public class SelectQueryUsageTest
 {
-  private static final int numTestRows = 100;
   private static final boolean DEFAULT_FROM_NEXT = true;
 
   private static final SelectQueryConfig config = new SelectQueryConfig(true);
@@ -80,7 +79,7 @@ public class SelectQueryUsageTest
                  .intervals(QueryRunnerTestHelper.fullOnInterval)
                  .granularity(QueryRunnerTestHelper.allGran)
                  .filters(UsageTestUtils.FILTER)
-                 .pagingSpec(PagingSpec.newSpec(10))
+                 .pagingSpec(PagingSpec.newSpec(UsageTestUtils.numTestRows))
                  .descending(descending);
   }
 
@@ -92,7 +91,10 @@ public class SelectQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, numTestRows);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -107,7 +109,10 @@ public class SelectQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, numTestRows);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -123,7 +128,10 @@ public class SelectQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, numTestRows);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -135,6 +143,9 @@ public class SelectQueryUsageTest
                         UsageTestUtils.CONSTANT_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, numTestRows);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 }

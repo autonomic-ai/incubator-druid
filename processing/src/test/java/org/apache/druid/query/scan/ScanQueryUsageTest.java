@@ -78,7 +78,10 @@ public class ScanQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -93,7 +96,10 @@ public class ScanQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -109,7 +115,10 @@ public class ScanQueryUsageTest
         .virtualColumns(UsageTestUtils.EXPR_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 
   @Test
@@ -121,6 +130,9 @@ public class ScanQueryUsageTest
                         UsageTestUtils.CONSTANT_COLUMN)
         .build();
 
-    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * 10);
+    int nonNullColumns = UsageTestUtils.COLUMNS.length +
+                         2 /* in EXPR_COLUMN */ +
+                         1 /* FILTER */;
+    UsageTestUtils.verify(runner, query, UsageTestUtils.numTestRows * nonNullColumns);
   }
 }
