@@ -32,7 +32,7 @@ import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.filter.DimFilter;
@@ -59,7 +59,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
   private final List<PostAggregator> postAggregatorSpecs;
   private final int limit;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public TimeseriesQuery(
@@ -101,7 +101,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
       final List<PostAggregator> postAggregatorSpecs,
       final int limit,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, descending, context, granularity);
@@ -118,7 +118,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
     Preconditions.checkArgument(this.limit > 0, "limit must be greater than 0");
 
     if (usageCollector == null) {
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           null,
           virtualColumns,
@@ -234,7 +234,7 @@ public class TimeseriesQuery extends BaseQuery<Result<TimeseriesResultValue>>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }

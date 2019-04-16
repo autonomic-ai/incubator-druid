@@ -26,7 +26,7 @@ import org.apache.druid.query.BaseQuery;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.filter.DimFilter;
 import org.apache.druid.query.spec.QuerySegmentSpec;
 import org.apache.druid.segment.VirtualColumn;
@@ -52,7 +52,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
   private final List<String> columns;
   private final Boolean legacy;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public ScanQuery(
@@ -93,7 +93,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
       final List<String> columns,
       final Boolean legacy,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, false, context);
@@ -108,7 +108,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
     this.legacy = legacy;
 
     if (usageCollector == null) {
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           null,
           virtualColumns,
@@ -207,7 +207,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }
@@ -283,7 +283,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
     private DimFilter dimFilter;
     private List<String> columns;
     private Boolean legacy;
-    private UsageUtils.UsageCollector usageCollector;
+    private UsageCollector usageCollector;
 
     public ScanQueryBuilder()
     {
@@ -410,7 +410,7 @@ public class ScanQuery extends BaseQuery<ScanResultValue>
       return this;
     }
 
-    public ScanQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+    public ScanQueryBuilder usageCollector(UsageCollector usageCollector)
     {
       this.usageCollector = usageCollector;
       return this;

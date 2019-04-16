@@ -30,7 +30,7 @@ import org.apache.druid.query.PerSegmentQueryOptimizationContext;
 import org.apache.druid.query.Queries;
 import org.apache.druid.query.Query;
 import org.apache.druid.query.Result;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DimensionSpec;
@@ -59,7 +59,7 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
   private final List<AggregatorFactory> aggregatorSpecs;
   private final List<PostAggregator> postAggregatorSpecs;
 
-  private final UsageUtils.UsageCollector usageCollector;
+  private final UsageCollector usageCollector;
 
   @JsonCreator
   public TopNQuery(
@@ -104,7 +104,7 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
       final List<AggregatorFactory> aggregatorSpecs,
       final List<PostAggregator> postAggregatorSpecs,
       final Map<String, Object> context,
-      final UsageUtils.UsageCollector usageCollector
+      final UsageCollector usageCollector
   )
   {
     super(dataSource, querySegmentSpec, false, context, granularity);
@@ -132,7 +132,7 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
 
     if (usageCollector == null) {
       // TODO(joy) we might need to consider topNMetricSpec.
-      this.usageCollector = new UsageUtils.UsageCollector(
+      this.usageCollector = new UsageCollector(
           new AtomicLong(0),
           Collections.singletonList(dimensionSpec),
           virtualColumns,
@@ -258,7 +258,7 @@ public class TopNQuery extends BaseQuery<Result<TopNResultValue>>
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return usageCollector;
   }

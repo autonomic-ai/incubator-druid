@@ -115,5 +115,5 @@ public interface Query<T>
     return this;
   }
 
-  UsageUtils.UsageCollector getUsageCollector();
+  UsageCollector getUsageCollector();
 }

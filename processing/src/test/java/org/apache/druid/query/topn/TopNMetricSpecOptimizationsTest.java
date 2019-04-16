@@ -28,7 +28,7 @@ import org.apache.druid.java.util.common.Pair;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.query.QueryMetrics;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.aggregation.DoubleMaxAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleMinAggregatorFactory;
 import org.apache.druid.query.filter.Filter;
@@ -395,7 +395,7 @@ public class TopNMetricSpecOptimizationsTest
           Granularity gran,
           boolean descending,
           @Nullable QueryMetrics<?> queryMetrics,
-          @Nullable UsageUtils.UsageCollector usageCollector
+          @Nullable UsageCollector usageCollector
       )
       {
         return null;

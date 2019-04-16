@@ -74,7 +74,7 @@ class TestQuery extends BaseQuery
   }
 
   @Override
-  public UsageUtils.UsageCollector getUsageCollector()
+  public UsageCollector getUsageCollector()
   {
     return null;
   }

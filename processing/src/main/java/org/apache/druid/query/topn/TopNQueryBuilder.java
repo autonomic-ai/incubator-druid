@@ -24,7 +24,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.granularity.Granularity;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.UsageUtils;
+import org.apache.druid.query.UsageCollector;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.PostAggregator;
 import org.apache.druid.query.dimension.DefaultDimensionSpec;
@@ -78,7 +78,7 @@ public class TopNQueryBuilder
   private List<AggregatorFactory> aggregatorSpecs;
   private List<PostAggregator> postAggregatorSpecs;
   private Map<String, Object> context;
-  private UsageUtils.UsageCollector usageCollector;
+  private UsageCollector usageCollector;
 
   public TopNQueryBuilder()
   {
@@ -271,7 +271,7 @@ public class TopNQueryBuilder
     return this;
   }
 
-  public TopNQueryBuilder usageCollector(UsageUtils.UsageCollector usageCollector)
+  public TopNQueryBuilder usageCollector(UsageCollector usageCollector)
   {
     this.usageCollector = usageCollector;
     return this;
