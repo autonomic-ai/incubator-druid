@@ -32,6 +32,7 @@ _REQUIRED_VARS=(
   POSTGRES_DATABASE
   POSTGRES_USER
   POSTGRES_PASSWORD
+  USAGE_KAFKA_BROKERS
 )
 
 _validate_env_vars() {
@@ -79,4 +80,10 @@ _update_postgres_config() {
 _update_zookeeper_config() {
   sed -i "s%druid.zk.service.host=zk_host%druid.zk.service.host=${ZK_HOST}%g" \
     /opt/au/config/common/common.runtime.properties
+}
+
+_update_usage_reporter_config() {
+  sed -i "s%druid.monitor.usageReporter.kafkaBrokers=placeholder-usageKafkaBrokers%druid.monitor.usageReporter.kafkaBrokers=${USAGE_KAFKA_BROKERS}%g" \
+    /opt/au/config/common/common.runtime.properties
+
 }
